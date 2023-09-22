@@ -18,8 +18,8 @@ source(file.path(wd, 'R', 'functions', 'file_io.R'))  # read_10x
 # args
 option_list = list(
     make_option(c("-i", "--input-dir"),
-                default='data/scrnaseq-ballesteros/10x_counts/spleen1/raw',
-                metavar='data/scrnaseq-ballesteros/10x_counts/spleen1/raw',
+                default='data/scrnaseq-ballesteros/10x_counts/spleen1/counts',
+                metavar='data/scrnaseq-ballesteros/10x_counts/spleen1/counts',
                 type="character",
                 help="directory containing standard 10x output: barcodes.tsv, genes.tsv, and matrix.mtx"),
     
@@ -52,12 +52,11 @@ log_print(paste('Script started at:', start_time))
 
 log_print(paste(Sys.time(), 'Reading data...'))
 
-expr_mtx <- read_10x(
-    file.path(wd, opt['input-dir'][[1]]),
-    matrix_file='GSM4239566_Spleen1_mm10_matrix.mtx.gz',
-    genes_file='GSM4239566_Spleen1_mm10_genes.tsv.gz',
-    barcodes_file='GSM4239566_barcodes_Spleen1.tsv.gz'
-)  # already filtered data
+expr_mtx <- read_10x(file.path(wd, opt['input-dir'][[1]]))
+
+# data already filtered
+# this will throw an error
+# drop_stats <- DropletUtils::emptyDrops(expr_mtx)
 
 seurat_obj <- CreateSeuratObject(counts = expr_mtx, min.cells = 3) %>% 
     NormalizeData(verbose = FALSE) %>% 
