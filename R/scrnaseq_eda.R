@@ -1,4 +1,8 @@
 ## Code used to analyze scRNAseq data
+##
+## This code is adapted from DIY_scRNAseq.R, which is freely available here: 
+## https://diytranscriptomics.com/scripts
+## See: https://github.com/harrisonized/diy-transcriptomics
 
 wd = dirname(this.path::here())  # wd = '~/github/R/harrisonRTools'
 suppressMessages(library('Seurat'))
