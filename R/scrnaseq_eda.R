@@ -42,7 +42,7 @@ troubleshooting = opt['troubleshooting'][[1]]
 
 # Start Log
 start_time = Sys.time()
-log <- log_open(paste0("scrnaseq_filter_drops",
+log <- log_open(paste0("scrnaseq_eda-",
                        strftime(start_time, format="%Y%m%d_%H%M%S"), '.log'))
 log_print(paste('Script started at:', start_time))
 
