@@ -25,9 +25,9 @@ option_list = list(
 )
 opt_parser = OptionParser(option_list=option_list)
 opt = parse_args(opt_parser)
-troubleshooting = opt['troubleshooting'][[1]]
-data_dir = opt['data-dir'][[1]]
-fig_dir = opt['output-dir'][[1]]
+troubleshooting = opt[['troubleshooting']]
+data_dir = opt[['data-dir']]
+fig_dir = opt[['output-dir']]
 
 # Start Log
 start_time = Sys.time()

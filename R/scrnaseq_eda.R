@@ -1,8 +1,10 @@
 ## Code used to analyze scRNAseq data
+## Based on: https://satijalab.org/seurat/articles/pbmc3k_tutorial.html
 ##
 ## This code is adapted from DIY_scRNAseq.R, which is freely available here: 
 ## https://diytranscriptomics.com/scripts
 ## See: https://github.com/harrisonized/diy-transcriptomics
+
 
 wd = dirname(this.path::here())  # wd = '~/github/R/harrisonRTools'
 suppressMessages(library('Seurat'))
@@ -42,7 +44,7 @@ option_list = list(
 )
 opt_parser = OptionParser(option_list=option_list)
 opt = parse_args(opt_parser)
-troubleshooting = opt['troubleshooting'][[1]]
+troubleshooting = opt[['troubleshooting']]
 
 # Start Log
 start_time = Sys.time()
@@ -56,7 +58,7 @@ log_print(paste('Script started at:', start_time))
 
 log_print(paste(Sys.time(), 'Reading data...'))
 
-expr_mtx <- read_10x(file.path(wd, opt['input-dir'][[1]]))
+expr_mtx <- read_10x(file.path(wd, opt[['input-dir']]))
 
 # data already filtered
 # this will throw an error
@@ -69,7 +71,7 @@ seurat_obj <- CreateSeuratObject(counts = expr_mtx, min.cells = 3) %>%
 # QC plot
 VlnPlot(seurat_obj, c("nCount_RNA", "nFeature_RNA"), pt.size = 0.1)
 if (!troubleshooting) {
-    ggsave(file.path(wd, opt['output-dir'][[1]], 'violin-raw_qc.png'),
+    ggsave(file.path(wd, opt[['output-dir']], 'violin-raw_qc.png'),
            height=750, width=1200, dpi=300, units="px", scaling=0.5)
 }
 
@@ -90,7 +92,7 @@ ggplot(seurat_obj@meta.data, aes(nCount_RNA, nFeature_RNA)) +
     labs(x = "Total UMI counts per cell", y = "Number of genes detected")
 
 if (!troubleshooting) {
-    ggsave(file.path(wd, opt['output-dir'][[1]], 'scatter-num_genes_vs_counts.png'),
+    ggsave(file.path(wd, opt[['output-dir']], 'scatter-num_genes_vs_counts.png'),
            height=750, width=1200, dpi=300, units="px", scaling=0.5)
 }
 
@@ -113,12 +115,12 @@ seurat_obj <- FindClusters(seurat_obj, resolution = 0.5)
 # Plot UMAP with clusters highlighted
 DimPlot(seurat_obj, reduction = "umap", split.by = "orig.ident", label = TRUE)
 if (!troubleshooting) {
-    ggsave(file.path(wd, opt['output-dir'][[1]], 'umap-clusters.png'),
+    ggsave(file.path(wd, opt[['output-dir']], 'umap-clusters.png'),
            height=750, width=1200, dpi=300, units="px", scaling=0.5)
 }
 
 # Plot UMAP for specific gene of interest
-gene = opt['gene-of-interest'][[1]]  # gene = 'IGHM'
+gene = opt[['gene-of-interest']]  # gene = 'IGHM'
 FeaturePlot(
     seurat_obj, reduction = "umap", features = c(gene),
     pt.size = 0.4,  min.cutoff = 'q10',
@@ -126,7 +128,7 @@ FeaturePlot(
     order = TRUE, label = FALSE
 )
 if (!troubleshooting) {
-    ggsave(file.path(wd, opt['output-dir'][[1]], paste0('umap-', gene, '.png')),
+    ggsave(file.path(wd, opt[['output-dir']], paste0('umap-', gene, '.png')),
            height=750, width=1200, dpi=300, units="px", scaling=0.5)
 }
 
