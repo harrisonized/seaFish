@@ -30,4 +30,4 @@ scrnaseq-ballesteros/
 │   └─ spleen2/counts/...
 └─ README.md
 ```
-In total, there are 27 files, split into 9 folders.
+In total, there are 27 files, split into 9 folders. Note that there's a bug in `pbzt13_2` that prevents it from being used. The matrix contains 3,388 genes, but the genes file only contains 3,204 genes.

@@ -50,7 +50,8 @@ io_df <- data.frame(
               'data/scrnaseq-ballesteros/10x_counts/lung2/counts', sep=':'),
         paste('data/scrnaseq-ballesteros/10x_counts/pbzt5/counts',
               'data/scrnaseq-ballesteros/10x_counts/pbzt13_1/counts',
-              'data/scrnaseq-ballesteros/10x_counts/pbzt13_2/counts', sep=':'),
+              # 'data/scrnaseq-ballesteros/10x_counts/pbzt13_2/counts',  # PBZT13_2_genes has 3204 rows when 3388 expected
+               sep=':'),  
         paste('data/scrnaseq-ballesteros/10x_counts/spleen1/counts',
               'data/scrnaseq-ballesteros/10x_counts/spleen2/counts', sep=':')
         ),
@@ -70,7 +71,8 @@ io_df <- data.frame(
     'labels' = c(
         "bm1:bm2",
         "lung1:lung2",
-        "pbzt5:pbzt13_1:pbzt13_2",
+        # "pbzt5:pbzt13_1:pbzt13_2",  # PBZT13_2_genes has 3204 rows when 3388 expected
+        "pbzt5:pbzt13_1",
         "spleen1:spleen2"
     ),
     stringsAsFactors = FALSE
