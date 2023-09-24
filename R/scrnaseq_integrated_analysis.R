@@ -8,7 +8,7 @@
 wd = dirname(this.path::here())  # wd = '~/github/R/harrisonRTools'
 suppressMessages(library('Seurat'))
 library('Matrix')
-# suppressMessages(library('DropletUtils'))
+suppressMessages(library('DropletUtils'))  # write10xCounts
 suppressMessages(library('dplyr'))
 library('readr')
 library('ggplot2')
@@ -32,6 +32,11 @@ option_list = list(
                 help="Colon separated list: path/to/dir1:path/to/dir2:path/to/dir3"),
 
     make_option(c("-o", "--output-dir"),
+                default="data/scrnaseq-ballesteros/integrated/spleen",
+                metavar="data/scrnaseq-ballesteros/integrated/spleen", type="character",
+                help="set the output directory for the data"),
+
+    make_option(c("-f", "--figures-dir"),
                 default="figures/scrnaseq-ballesteros/integrated/spleen",
                 metavar="figures/scrnaseq-ballesteros/integrated/spleen", type="character",
                 help="set the output directory for the figures"),
@@ -50,6 +55,13 @@ option_list = list(
 opt_parser = OptionParser(option_list=option_list)
 opt = parse_args(opt_parser)
 troubleshooting = opt[['troubleshooting']]
+
+# create required directories
+if (!troubleshooting) {
+    if (!dir.exists(file.path(wd, opt[['output-dir']]))) {
+        dir.create(file.path(wd, opt[['output-dir']]), recursive=TRUE)
+    }
+}
 
 # Start Log
 start_time = Sys.time()
@@ -88,7 +100,7 @@ for (input in inputs) {
     # Plot Unintegrated
     DimPlot(seurat_obj, reduction = "umap", split.by = "orig.ident", label = TRUE)
     if (!troubleshooting) {
-        ggsave(file.path(wd, opt[['output-dir']], paste0('umap-single-', label, '.png')),
+        ggsave(file.path(wd, opt[['figures-dir']], paste0('umap-single-', label, '.png')),
                height=750, width=1200, dpi=300, units="px", scaling=0.5)
     }
 
@@ -109,12 +121,20 @@ integration_anchors <- FindIntegrationAnchors(
 integrated_seurat <- IntegrateData(anchorset = integration_anchors)
 integrated_seurat <- run_standard_clustering(integrated_seurat, ndim=30)
 
+# save this for clustering
+if (!troubleshooting) {
+    save(
+        integrated_seurat,
+        file=file.path(wd, opt[['output-dir']], 'integrated_seurat.RData')
+    )
+}
+
 log_print(paste(Sys.time(), 'Plotting...'))
 
 # Plot UMAP with clusters highlighted
 DimPlot(integrated_seurat, reduction = "umap", label = TRUE)
 if (!troubleshooting) {
-    ggsave(file.path(wd, opt[['output-dir']], 'umap-integrated.png'),
+    ggsave(file.path(wd, opt[['figures-dir']], 'umap-integrated.png'),
            height=750, width=1200, dpi=300, units="px", scaling=0.5)
 }
 
@@ -128,7 +148,7 @@ FeaturePlot(integrated_seurat,
             min.cutoff = 'q10',
             label = FALSE)
 if (!troubleshooting) {
-    ggsave(file.path(wd, opt[['output-dir']], paste0('umap-', tolower(opt[['gene-of-interest']]), '.png')),
+    ggsave(file.path(wd, opt[['figures-dir']], paste0('umap-', tolower(opt[['gene-of-interest']]), '.png')),
            height=750, width=1200, dpi=300, units="px", scaling=0.5)
 }
 
