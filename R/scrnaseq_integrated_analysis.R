@@ -32,8 +32,8 @@ option_list = list(
                 help="Colon separated list: path/to/dir1:path/to/dir2:path/to/dir3"),
 
     make_option(c("-o", "--output-dir"),
-                default="figures/scrnaseq-ballesteros/integrated/spleen-integrated",
-                metavar="figures/scrnaseq-ballesteros/integrated/spleen-integrated", type="character",
+                default="figures/scrnaseq-ballesteros/integrated/spleen",
+                metavar="figures/scrnaseq-ballesteros/integrated/spleen", type="character",
                 help="set the output directory for the figures"),
 
     make_option(c("-l", "--labels"),  default='spleen1:spleen2', metavar='spleen1:spleen2',
@@ -61,34 +61,34 @@ log_print(paste('Script started at:', start_time))
 # ----------------------------------------------------------------------
 # Create Seurat objects, then cluster
 
-log_print(paste(Sys.time(), 'Reading data...'))
+log_print(paste(Sys.time(), 'Reading Seurat objects...'))
 
 inputs = unlist(strsplit(opt[['inputs']], ':'))
 labels = unlist(strsplit(opt[['labels']], ':'))
 names(labels) = inputs
 
 expr_mtxs = c()
-
 for (input in inputs) {
+    label = labels[[input]]
 
-    # Read seurat
-    expr_mtx <- read_10x(file.path(wd, input))
+    log_print(paste(Sys.time(), 'Reading...', label))
+
+    # Perform single umap
+    expr_mtx <- read_10x(file.path(wd, input))  # read seurat
     seurat_obj <- CreateSeuratObject(counts = expr_mtx, min.cells = 3) %>% 
         NormalizeData(verbose = FALSE) %>% 
         FindVariableFeatures(verbose = FALSE)
-    seurat_obj$treatment <- labels[[input]]  # label
+    seurat_obj$treatment <- label
+    seurat_obj <- subset(seurat_obj, subset = (
+        (nCount_RNA < 20000) & (nCount_RNA > 1000) & (nFeature_RNA > 1000))
+    )  # filter
 
-    # filter
-    seurat_obj <- subset(
-        seurat_obj,
-        subset = ((nCount_RNA < 20000) & (nCount_RNA > 1000) & (nFeature_RNA > 1000))
-    )
+    seurat_obj <- run_standard_clustering(seurat_obj, ndim=40)  # cluster
 
-    seurat_obj <- run_standard_clustering(seurat_obj, ndim=40)
-
+    # Plot Unintegrated
     DimPlot(seurat_obj, reduction = "umap", split.by = "orig.ident", label = TRUE)
     if (!troubleshooting) {
-        ggsave(file.path(wd, opt[['output-dir']], 'umap-unlabeled_1.png'),
+        ggsave(file.path(wd, opt[['output-dir']], paste0('umap-single-', label, '.png')),
                height=750, width=1200, dpi=300, units="px", scaling=0.5)
     }
 
@@ -101,9 +101,7 @@ for (input in inputs) {
 
 log_print(paste(Sys.time(), 'Integrating data...'))
 
-integration_features <- SelectIntegrationFeatures(
-    object.list = expr_mtxs
-)
+integration_features <- SelectIntegrationFeatures(object.list = expr_mtxs)
 integration_anchors <- FindIntegrationAnchors(
     object.list = expr_mtxs,
     anchor.features = integration_features
@@ -111,9 +109,7 @@ integration_anchors <- FindIntegrationAnchors(
 integrated_seurat <- IntegrateData(anchorset = integration_anchors)
 integrated_seurat <- run_standard_clustering(integrated_seurat, ndim=30)
 
-
-# ----------------------------------------------------------------------
-# Plot UMAPs
+log_print(paste(Sys.time(), 'Plotting...'))
 
 # Plot UMAP with clusters highlighted
 DimPlot(integrated_seurat, reduction = "umap", label = TRUE)
