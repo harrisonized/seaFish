@@ -30,8 +30,8 @@ option_list = list(
                 help="directory containing standard 10x output: barcodes.tsv, genes.tsv, and matrix.mtx"),
     
     make_option(c("-o", "--output-dir"),
-                default="figures/scrnaseq-ballesteros/spleen1",
-                metavar="figures/scrnaseq-ballesteros/spleen1", type="character",
+                default="figures/scrnaseq-ballesteros/10x_counts/spleen1",
+                metavar="figures/scrnaseq-ballesteros/10x_counts/spleen1", type="character",
                 help="set the output directory for the figures"),
 
     make_option(c("-g", "--gene-of-interest"), default="Dnase1l1",

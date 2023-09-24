@@ -56,13 +56,6 @@ opt_parser = OptionParser(option_list=option_list)
 opt = parse_args(opt_parser)
 troubleshooting = opt[['troubleshooting']]
 
-# create required directories
-if (!troubleshooting) {
-    if (!dir.exists(file.path(wd, opt[['output-dir']]))) {
-        dir.create(file.path(wd, opt[['output-dir']]), recursive=TRUE)
-    }
-}
-
 # Start Log
 start_time = Sys.time()
 log <- log_open(paste0("scrnaseq_eda-",
@@ -123,6 +116,9 @@ integrated_seurat <- run_standard_clustering(integrated_seurat, ndim=30)
 
 # save this for clustering
 if (!troubleshooting) {
+    if (!dir.exists(file.path(wd, opt[['output-dir']]))) {
+        dir.create(file.path(wd, opt[['output-dir']]), recursive=TRUE)
+    }
     save(
         integrated_seurat,
         file=file.path(wd, opt[['output-dir']], 'integrated_seurat.RData')

@@ -15,8 +15,8 @@ option_list = list(
                 help="set folder containing all the 10x_counts directories"),
 
     make_option(c("-o", "--output-dir"),
-                default="figures/scrnaseq-ballesteros",
-                metavar="figures/scrnaseq-ballesteros", type="character",
+                default="figures/scrnaseq-ballesteros/10x_counts",
+                metavar="figures/scrnaseq-ballesteros/10x_counts", type="character",
                 help="set the output directory for the figures"),
 
     make_option(c("-t", "--troubleshooting"), default=FALSE, action="store_true",
