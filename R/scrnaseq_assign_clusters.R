@@ -29,7 +29,7 @@ option_list = list(
                 type="character",
                 help="output of scrnaseq_integrated_analysis.R"),
 
-    make_option(c("-f", "--figures-dir"),
+    make_option(c("-o", "--output-dir"),
                 default="figures/scrnaseq-ballesteros/integrated/spleen",
                 metavar="figures/scrnaseq-ballesteros/integrated/spleen", type="character",
                 help="set the output directory for the figures"),
@@ -48,6 +48,7 @@ option_list = list(
 )
 opt_parser = OptionParser(option_list=option_list)
 opt = parse_args(opt_parser)
+dataset = basename(opt[['output-dir']])
 troubleshooting = opt[['troubleshooting']]
 
 # Start Log
@@ -117,8 +118,8 @@ DimPlot(
     label = TRUE
 )
 if (!troubleshooting) {
-    ggsave(file.path(wd, opt[['figures-dir']],
-                     paste0('umap-integrated-celldex_labeled-', tolower(opt$celldex), '.png')),
+    ggsave(file.path(wd, opt[['output-dir']],
+                     paste0('umap-', dataset, '-integrated-', tolower(opt$celldex), '_labeled.png')),
            height=750, width=1200, dpi=300, units="px", scaling=0.5)
 }
 

@@ -44,6 +44,7 @@ option_list = list(
 )
 opt_parser = OptionParser(option_list=option_list)
 opt = parse_args(opt_parser)
+dataset = basename(opt[['output-dir']])
 troubleshooting = opt[['troubleshooting']]
 
 # Start Log
@@ -71,7 +72,7 @@ seurat_obj <- CreateSeuratObject(counts = expr_mtx, min.cells = 3) %>%
 # QC plot
 VlnPlot(seurat_obj, c("nCount_RNA", "nFeature_RNA"), pt.size = 0.1)
 if (!troubleshooting) {
-    ggsave(file.path(wd, opt[['output-dir']], 'violin-raw_qc.png'),
+    ggsave(file.path(wd, opt[['output-dir']], paste0('violin-', dataset, '-raw_qc.png')),
            height=750, width=1200, dpi=300, units="px", scaling=0.5)
 }
 
@@ -92,7 +93,7 @@ ggplot(seurat_obj@meta.data, aes(nCount_RNA, nFeature_RNA)) +
     labs(x = "Total UMI counts per cell", y = "Number of genes detected")
 
 if (!troubleshooting) {
-    ggsave(file.path(wd, opt[['output-dir']], 'scatter-num_genes_vs_counts.png'),
+    ggsave(file.path(wd, opt[['output-dir']], paste0('scatter-', dataset, '-num_genes_vs_counts.png')),
            height=750, width=1200, dpi=300, units="px", scaling=0.5)
 }
 
@@ -115,7 +116,7 @@ seurat_obj <- FindClusters(seurat_obj, resolution = 0.5)
 # Plot UMAP with clusters highlighted
 DimPlot(seurat_obj, reduction = "umap", split.by = "orig.ident", label = TRUE)
 if (!troubleshooting) {
-    ggsave(file.path(wd, opt[['output-dir']], 'umap-clusters.png'),
+    ggsave(file.path(wd, opt[['output-dir']], paste0('umap-', dataset, '-clusters.png')),
            height=750, width=1200, dpi=300, units="px", scaling=0.5)
 }
 
@@ -128,7 +129,7 @@ FeaturePlot(
     order = TRUE, label = FALSE
 )
 if (!troubleshooting) {
-    ggsave(file.path(wd, opt[['output-dir']], paste0('umap-', gene, '.png')),
+    ggsave(file.path(wd, opt[['output-dir']], paste0('umap-', dataset, '-', tolower(gene), '.png')),
            height=750, width=1200, dpi=300, units="px", scaling=0.5)
 }
 

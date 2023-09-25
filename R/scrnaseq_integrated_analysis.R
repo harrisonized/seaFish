@@ -54,6 +54,7 @@ option_list = list(
 )
 opt_parser = OptionParser(option_list=option_list)
 opt = parse_args(opt_parser)
+dataset = basename(opt[['output-dir']])
 troubleshooting = opt[['troubleshooting']]
 
 # Start Log
@@ -93,7 +94,8 @@ for (input in inputs) {
     # Plot Unintegrated
     DimPlot(seurat_obj, reduction = "umap", split.by = "orig.ident", label = TRUE)
     if (!troubleshooting) {
-        ggsave(file.path(wd, opt[['figures-dir']], paste0('umap-single-', label, '.png')),
+        ggsave(file.path(wd, opt[['figures-dir']],
+                         paste0('umap-', dataset, '-single-', label, '.png')),
                height=750, width=1200, dpi=300, units="px", scaling=0.5)
     }
 
@@ -130,7 +132,8 @@ log_print(paste(Sys.time(), 'Plotting...'))
 # Plot UMAP with clusters highlighted
 DimPlot(integrated_seurat, reduction = "umap", label = TRUE)
 if (!troubleshooting) {
-    ggsave(file.path(wd, opt[['figures-dir']], 'umap-integrated.png'),
+    ggsave(file.path(wd, opt[['figures-dir']], 
+                     paste0('umap-', dataset, '-integrated.png')),
            height=750, width=1200, dpi=300, units="px", scaling=0.5)
 }
 
@@ -144,7 +147,8 @@ FeaturePlot(integrated_seurat,
             min.cutoff = 'q10',
             label = FALSE)
 if (!troubleshooting) {
-    ggsave(file.path(wd, opt[['figures-dir']], paste0('umap-', tolower(opt[['gene-of-interest']]), '.png')),
+    ggsave(file.path(wd, opt[['figures-dir']],
+                     paste0('umap-', dataset, '-integrated-', tolower(opt[['gene-of-interest']]), '.png')),
            height=750, width=1200, dpi=300, units="px", scaling=0.5)
 }
 
