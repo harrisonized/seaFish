@@ -53,7 +53,7 @@ troubleshooting = opt[['troubleshooting']]
 
 # Start Log
 start_time = Sys.time()
-log <- log_open(paste0("covid19_scrnaseq_cluster_assignment-",
+log <- log_open(paste0("scrnaseq_assign_clusters-",
                        strftime(start_time, format="%Y%m%d_%H%M%S"), '.log'))
 log_print(paste('Script started at:', start_time))
 

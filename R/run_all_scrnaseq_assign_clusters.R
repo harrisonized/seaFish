@@ -19,7 +19,7 @@ troubleshooting = opt[['troubleshooting']]
 
 # Start Log
 start_time = Sys.time()
-log <- log_open(paste0("run_all_scrnaseq_integrated_analysis-",
+log <- log_open(paste0("run_all_scrnaseq_assign_clusters-",
                        strftime(start_time, format="%Y%m%d_%H%M%S"), '.log'))
 log_print(paste('Script started at:', start_time))
 
