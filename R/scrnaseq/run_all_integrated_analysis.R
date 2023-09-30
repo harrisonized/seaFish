@@ -1,4 +1,4 @@
-wd = dirname(this.path::here())  # wd = '~/github/R/harrisonRTools'
+wd = dirname(dirname(this.path::here()))  # wd = '~/github/R/harrisonRTools'
 library('optparse')
 library('logr')
 source(file.path(wd, 'R', 'functions', 'file_io.R'))

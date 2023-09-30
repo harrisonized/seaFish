@@ -6,7 +6,7 @@
 ## See: https://github.com/harrisonized/diy-transcriptomics
 
 
-wd = dirname(this.path::here())  # wd = '~/github/R/harrisonRTools'
+wd = dirname(dirname(this.path::here()))  # wd = '~/github/R/harrisonRTools'
 suppressMessages(library('Seurat'))
 library('Matrix')
 # suppressMessages(library('DropletUtils'))
