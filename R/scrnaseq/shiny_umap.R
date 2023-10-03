@@ -1,7 +1,7 @@
 ## Plots the integrated dataset
 ## Includes a dropdown menu to select the dataset and a text box to type in the gene
 
-wd = dirname(this.path::here())  # wd = '~/github/R/harrisonRTools'
+wd = dirname(dirname(this.path::here()))  # wd = '~/github/R/harrisonRTools'
 library('shiny')
 suppressMessages(library('shinydashboard'))
 suppressMessages(library('Seurat'))
