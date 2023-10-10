@@ -2,7 +2,7 @@
 ## To be converted to shiny app
 
 
-wd = dirname(this.path::here())  # wd = '~/github/R/harrisonRTools'
+wd = dirname(dirname(this.path::here()))  # wd = '~/github/R/harrisonRTools'
 suppressMessages(library('Seurat'))
 library('Matrix')
 # suppressMessages(library('DropletUtils'))
@@ -62,10 +62,11 @@ log_print(paste(Sys.time(), 'Reading data...'))
 
 integrated_seurat <- load_rdata(file.path(wd, opt[['input-file']]))
 
-log_print(paste(Sys.time(), 'Plotting...'))
 
 # ----------------------------------------------------------------------
 # Plot Data
+
+log_print(paste(Sys.time(), 'Plotting...'))
 
 # Plot UMAP for specific gene of interest
 FeaturePlot(integrated_seurat, 
