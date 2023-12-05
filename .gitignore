@@ -1,0 +1,12 @@
+data
+figures
+ref
+log
+renv
+renv.lock
+.Rproj.user
+.Rhistory
+.Rbuildignore
+.Rprofile
+.Rproj.user
+.DS_Store
