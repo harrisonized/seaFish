@@ -172,7 +172,10 @@ read_10x <- function(
 
         filenames = basename(list_files(data_dir))
         matrix_file = filter_list_for_match(filenames, 'matrix')
-        genes_file = filter_list_for_match(filenames, 'genes')
+        genes_file = unlist(lapply(
+            c('genes', 'features'),
+            function(pattern) filter_list_for_match(filenames, pattern))
+        )
         barcodes_file = filter_list_for_match(filenames, 'barcodes')
     }
 
