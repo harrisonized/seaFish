@@ -1,8 +1,11 @@
+import::from('stringi', 'stri_replace_all_regex', .character_only=TRUE)
+
 ## Functions
 ## check_if_a_in_b
 ## items_in_a_not_b
 ## filter_list_for_match
 ## replace_specific_items
+## multiple_replacement
 
 
 #' https://stackoverflow.com/questions/53086053/how-to-check-if-a-list-contains-a-certain-element-in-r
@@ -48,4 +51,30 @@ replace_specific_items <- function(items, replacer) {
         items[idx] <- replacer[items[idx]]
     }
     return(items)
+}
+
+
+#' Convenience function to perform multiple replacements on a list or dataframe column
+#' 
+#' Example:
+#' replace_dict <- c(
+#'     '[A-Za-z]' = '',
+#'     '[0-9]+' = ''
+#' )
+#' 
+#' @export
+multiple_replacement <- function(items, replace_dict) {
+
+    patterns <- names(replace_dict)
+    replacements <- sapply(unname(replace_dict), function(x) gsub('\\\\', '$', x))
+    
+    items <- sapply(items,
+        function(x) stri_replace_all_regex(
+            x,
+            pattern = patterns,
+            replacement = replacements,
+            vectorize_all = FALSE)
+    )
+
+    return (items)
 }
