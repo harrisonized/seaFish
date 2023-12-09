@@ -200,7 +200,7 @@ for (group_name in names(config)) {
         seurat_counts, reduction = "UMAP", 
         group.by = "cell_type",
         # split.by = "treatment",  # facet if necessary
-        label = FALSE
+        label = TRUE
     ) + ggtitle(group_name)
 
     if (!troubleshooting) {
