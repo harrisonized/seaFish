@@ -1,6 +1,10 @@
 # library('Matrix')
 wd = dirname(dirname(this.path::here()))
-source(file.path(wd, 'R', 'functions', 'list_tools.R')) 
+import::here('Matrix', 'readMM', .character_only=TRUE)
+import::here('readr', 'read_tsv', .character_only=TRUE)
+import::here(file.path(wd, 'R', 'utils', 'list_tools.R'),
+    'filter_list_for_match', .character_only=TRUE
+)
 
 ## Functions
 ## list_files

@@ -2,12 +2,11 @@
 ## Includes a dropdown menu to select the dataset and a text box to type in the gene
 
 wd = dirname(this.path::here())  # wd = '~/github/R/seaFish'
+suppressPackageStartupMessages(library('Seurat'))
 library('shiny')
 library('ggplot2')
-suppressMessages(library('shinydashboard'))
-suppressMessages(library('Seurat'))
 library('optparse')
-source(file.path(wd, 'R', 'functions', 'file_io.R'))  # load_rdata
+source(file.path(wd, 'R', 'utils', 'file_io.R'))  # load_rdata
 
 options(shiny.host = '127.0.0.1')
 options(shiny.port = 3838)
