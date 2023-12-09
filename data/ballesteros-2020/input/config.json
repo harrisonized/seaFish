@@ -1,0 +1,6 @@
+{
+  "bm": ["bm1", "bm2"],
+  "lung": ["lung1", "lung2"],
+  "pb": ["pbzt13_1", "pbzt13_2", "pbzt5"],
+  "spleen": ["spleen1", "spleen2"]
+}

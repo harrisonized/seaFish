@@ -15,8 +15,8 @@ options(shiny.port = 3838)
 # args
 option_list = list(
     make_option(c("-i", "--input-dir"),
-                default='data/scrnaseq-ballesteros/integrated',
-                metavar='data/scrnaseq-ballesteros/integrated',
+                default='data/ballesteros-2020/output',
+                metavar='data/ballesteros-2020/output',
                 type="character",
                 help="output of scrnaseq_integrated_analysis.R"),
     

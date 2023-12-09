@@ -1,5 +1,5 @@
 ## Code used to analyze scRNAseq data
-## Process each sample individually
+## Cluster each sample individually
 ## Based on: https://satijalab.org/seurat/articles/pbmc3k_tutorial.html
 ##
 ## This code is adapted from DIY_scRNAseq.R, which is freely available here: 
@@ -63,7 +63,7 @@ figures_dir <- multiple_replacement(
 
 # Start Log
 start_time <- Sys.time()
-log <- log_open(paste0("standard_seurat-",
+log <- log_open(paste0("cluster_samples-",
                        strftime(start_time, format="%Y%m%d_%H%M%S"), '.log'))
 log_print(paste('Script started at:', start_time))
 
@@ -94,9 +94,9 @@ switch=list2env(list(
 
 
 # ----------------------------------------------------------------------
-# Pipeline
+# Main
 
-samples <- list.files(file.path(wd, opt[['input-dir']]))
+samples <- list.dirs(file.path(wd, opt[['input-dir']]), full.names=FALSE, recursive=FALSE)
 log_print(paste(Sys.time(),
                 'Found', length(samples), 'samples...',
                 paste(samples, collapse=', '))
@@ -229,15 +229,15 @@ for (sample_name in samples) {
                        paste0('umap-', sample_name, '-', tolower(opt[['celldex']]), '_labeled.png')
                    ),
                    plot = fig,
-                   height=800, width=800, dpi=300, units="px", scaling=0.5)
+                   height=800, width=1000, dpi=300, units="px", scaling=0.5)
         }
     },
 
     # pass
     error = function(condition) {
-            log_print(paste("WARNING: SAMPLE", sample_name, "NOT PROCESSED!!!"))
-            log_print(paste("Error message: ", conditionMessage(condition)))
-            NULL
+        log_print(paste("WARNING: SAMPLE", sample_name, "NOT PROCESSED!!!"))
+        log_print(paste("Error message: ", conditionMessage(condition)))
+        NULL
     })
 
 }
