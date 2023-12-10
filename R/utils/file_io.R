@@ -3,15 +3,10 @@ wd = dirname(dirname(this.path::here()))
 import::here('Matrix', 'readMM', .character_only=TRUE)
 import::here('readr', 'read_tsv', .character_only=TRUE)
 import::here(file.path(wd, 'R', 'utils', 'list_tools.R'),
-    'filter_list_for_match', .character_only=TRUE
-)
+    'filter_list_for_match', .character_only=TRUE)
 
 ## Functions
 ## list_files
-## join_many_csv
-## append_many_csv
-## read_text
-## read_csv_from_text
 ## read_10x
 ## load_rdata
 
@@ -28,134 +23,6 @@ list_files <- function(dir_path, ext=NULL, recursive = TRUE) {
     } else {
         return (all_files)
     }
-}
-
-
-#' Read all the csv files from a directory and left join them into a single dataframe
-#' See: https://stackoverflow.com/questions/5319839/read-multiple-csv-files-into-separate-all_reads-frames
-#' index_cols=c('gene_id', 'gene_name', 'chromosome')
-#' index_cols=c('count')
-#' 
-#' @export
-join_many_csv <- function(dir_path, index_cols, value_cols, ext='csv', recursive=TRUE, sep=',') {
-    filepaths <- list_files(dir_path, ext=ext, recursive=recursive)
-    if (length(filepaths)==0) {
-        stop(paste("no files found in: ", dir_path))
-    }
-    filenames = c(tools::file_path_sans_ext(basename(filepaths)))
-    
-    # read dfs and left join on index_cols
-    df_list <- lapply(filepaths, read.csv, sep=sep)
-
-    # Warning: column names ‘count.x’, ‘count.y’ are duplicated in the result
-    # See: https://stackoverflow.com/questions/38603668/suppress-any-emission-of-a-particular-warning-message
-    withCallingHandlers({
-        all_reads <- Reduce(
-            function(...) merge(..., by=index_cols),
-            lapply(df_list, "[", c(index_cols, value_cols))
-        )
-    }, warning = function(w) {
-        # print(conditionMessage(w))
-        if (startsWith(conditionMessage(w), "column names")) {
-            invokeRestart( "muffleWarning" )
-        }
-    })
-    
-    # rename columns
-    colnames(all_reads) = c(
-        index_cols,  # index_cols
-        as.list(outer(value_cols, filenames, paste, sep='-'))  # suffix value_cols with filename
-    )
-    return(all_reads)
-}
-
-
-#' Read all the csv files from a directory and append them into a single dataframe
-#' This is missing the filename column for now
-#' 
-#' @export
-append_many_csv <- function(dir_path, sep='\t', row_names=1) {
-    filenames <- list.files(dir_path, full.names=TRUE)
-    csv <- lapply(filenames, read.csv, sep=sep, row.names=row_names)
-    data <- do.call(rbind, csv)
-    return(data)
-}
-
-
-#' Read files ending in .txt
-#'
-#' Concatenates all the lines into a single string
-#'
-#' @export
-read_text <- function(
-    file_path,
-    encoding='UTF-8',
-    sep='\n'
-) {
-
-    con = file(file_path, encoding=encoding)
-    lines <- readLines(con)
-    close(con)
-
-    rawString <- paste(lines, collapse = sep)
-
-    return(rawString)
-}
-
-
-#' Reads and parses csv embedded in .txt files
-#'
-#' This is useful for data exported from plate readers
-#' 
-#' @examples
-#' # for 96-well plates:
-#' df <- read_csv_from_text(
-#'   file_path,
-#'   skiprows=3, nrows=8,
-#'   skipcols=2, ncols=12,
-#'   index=LETTERS[1:8],
-#'   columns=seq(1, 12)
-#' )
-#' @export
-read_csv_from_text <- function(
-    file_path,
-    encoding='UTF-16', sep='\t',
-    skiprows=0, nrows=NULL,
-    skipcols=0, ncols=NULL,
-    index=NULL,
-    columns=NULL,
-    numeric=FALSE
-) {
-
-    con = file(file_path, encoding=encoding)
-    rawData <- readLines(con)
-    close(con)
-    
-    # autodetermine ranges if not specified
-    if(is.null(nrows)) {
-        nrows <- length(rawData)
-    }
-    if(is.null(ncols)) {
-        rowArr = unlist(strsplit(rawData[1+skiprows], split='\t'))
-        ncols = length(rowArr)-skipcols
-    }
-    
-    # instantiate empty dataframe and append row-by-row
-    df <- data.frame(matrix(ncol=ncols, nrow=0))
-    for (row in rawData[(1+skiprows):(nrows+skiprows)]) {
-        rowArr <- unlist(strsplit(row, split='\t'))
-        df[nrow(df) + 1,] = rowArr[(1+skipcols):(ncols+skipcols)]
-    }
-    
-    # rename columns
-    colnames(df) <- columns
-    rownames(df) <- index
-
-    if(numeric) {
-        df[] <- lapply(df, function(x) as.numeric(as.character(x)))
-    }
-
-    return(df)
 }
 
 
