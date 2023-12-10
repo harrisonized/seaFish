@@ -7,9 +7,9 @@ suppressPackageStartupMessages(library('Seurat'))
 library('ggplot2')
 library('optparse')
 library('logr')
-import::from('SingleR', 'SingleR', .character_only=TRUE)
 import::from('magrittr', '%>%', .character_only=TRUE)
-import::from('DropletUtils', 'write10xCounts', .character_only=TRUE)
+import::from('SingleR', 'SingleR', .character_only=TRUE)
+# import::from('DropletUtils', 'emptyDrops', 'write10xCounts', .character_only=TRUE)
 import::from(file.path(wd, 'R', 'utils', 'file_io.R'),
     'read_10x', .character_only=TRUE)
 import::here(file.path(wd, 'R', 'utils', 'list_tools.R'),
@@ -62,10 +62,9 @@ log_print(paste('Script started at:', start_time))
 # Main
 
 samples <- list.dirs(file.path(wd, opt[['input-dir']]), full.names=FALSE, recursive=FALSE)
-log_print(paste(Sys.time(),
-                'Found', length(samples), 'samples...',
-                paste(samples, collapse=', '))
-)
+log_print(paste(
+    Sys.time(), 'Found', length(samples), 'samples...', paste(samples, collapse=', ')
+))
 
 for (sample_name in samples) {
 
@@ -80,82 +79,68 @@ for (sample_name in samples) {
         seurat_obj <- CreateSeuratObject(counts = expr_mtx, min.cells = 3) %>% 
             NormalizeData(verbose = FALSE) %>% 
             FindVariableFeatures(verbose = FALSE)
+        seurat_obj$sample_name <- sample_name
 
-        # QC plot
+        # QC plot 1
         VlnPlot(seurat_obj, c("nCount_RNA", "nFeature_RNA"), pt.size = 0.1)
         if (!troubleshooting) {
             ggsave(file.path(wd, figures_dir, sample_name, 'qc',
-                             paste0('violin-', sample_name, '-raw_qc.png')),
+                       paste0('violin-', sample_name, '-raw_qc.png')),
                    height=800, width=1200, dpi=300, units="px", scaling=0.5)
         }
-
-        # ----------------------------------------------------------------------
-        # Filter data
 
         # Note: emptyDrops cannot be run twice
         # For the ballesteros-2020 dataset, this has already been run
         # drop_stats <- DropletUtils::emptyDrops(expr_mtx)
 
-        seurat_obj <- subset(
-            seurat_obj,
-            subset = ((nCount_RNA < 20000) & 
-                      (nCount_RNA > 1000) & 
-                      (nFeature_RNA > 1000))
+        # filter data
+        seurat_obj <- subset(seurat_obj,
+            subset = ((nCount_RNA < 20000) & (nCount_RNA > 1000) & (nFeature_RNA > 1000))
         )
 
-        # another QC plot
+        # QC plot 2
         ggplot(seurat_obj@meta.data, aes(nCount_RNA, nFeature_RNA)) +
             geom_point(alpha = 0.7, size = 0.5) +
             labs(x = "Total UMI counts per cell", y = "Number of genes detected")
         if (!troubleshooting) {
             ggsave(file.path(wd, figures_dir, sample_name, 'qc',
-                             paste0('scatter-', sample_name, '-num_genes_vs_counts.png')),
+                       paste0('scatter-', sample_name, '-num_genes_vs_counts.png')),
                    height=800, width=1200, dpi=300, units="px", scaling=0.5)
         }
 
 
         # ----------------------------------------------------------------------
-        # Standard Clustering Workflow
+        # Cluster
 
         log_print(paste(Sys.time(), 'Running standard clustering workflow...'))
 
-        seurat_obj <- ScaleData(seurat_obj, verbose = FALSE)
-        seurat_obj <- RunPCA(seurat_obj, npcs = 40, verbose = FALSE)
-        seurat_obj <- RunUMAP(seurat_obj, reduction = "pca", dims = 1:40)
-        seurat_obj <- FindNeighbors(seurat_obj, reduction = "pca", dims = 1:40)
-        seurat_obj <- FindClusters(seurat_obj, resolution = 0.5)
+        seurat_obj <- run_standard_clustering(seurat_obj, ndim=30)
 
         # Plot UMAP
-        fig <- DimPlot(
-            seurat_obj, reduction = "umap", split.by = "orig.ident",
-            label = TRUE
-        ) +
-        theme(
-            strip.text.x = element_blank(),
-            plot.title = element_text(hjust = 0.5)
-        ) +
-        ggtitle("Unlabeled Clusters")
-
+        DimPlot(seurat_obj,
+                reduction = "umap",
+                split.by = "orig.ident",
+                label = TRUE) +
+            theme(strip.text.x = element_blank(), plot.title = element_text(hjust = 0.5)) +
+            ggtitle("Unlabeled Clusters")
         if (!troubleshooting) {
             ggsave(file.path(wd, figures_dir, sample_name,
                              paste0('umap-', sample_name, '-clusters.png')),
-                   plot = fig,
                    height=800, width=800, dpi=300, units="px", scaling=0.5)
         }
 
         # Plot UMAP for specific gene of interest
-        gene = opt[['gene-of-interest']]  # gene = 'IGHM'
-        fig <- FeaturePlot(
-            seurat_obj, reduction = "umap", features = c(gene),
-            pt.size = 0.4,
-            min.cutoff = 'q10',
+        gene = opt[['gene-of-interest']]
+        FeaturePlot(seurat_obj,
+            reduction = "umap",
             # split.by = "orig.ident",
-            order = TRUE, label = FALSE
+            features = c(gene),
+            min.cutoff = 'q10',
+            pt.size = 0.4, order = TRUE, label = FALSE
         )
         if (!troubleshooting) {
             ggsave(file.path(wd, figures_dir, sample_name,
-                             paste0('umap-', sample_name, '-', tolower(gene), '.png')),
-                   plot = fig,
+                       paste0('umap-', sample_name, '-', tolower(gene), '.png')),
                    height=800, width=800, dpi=300, units="px", scaling=0.5)
         }
 
@@ -164,7 +149,7 @@ for (sample_name in samples) {
 
         log_print(paste(Sys.time(), 'Labeling clusters...'))
 
-        # note: this overwrites the labels generated by the standard clustering workflow
+        # Note: this overwrites the labels generated by the standard clustering workflow
         sce_counts <- as.SingleCellExperiment(seurat_obj)
         get_data=celldex_switch[[opt$celldex]]
         ref_data <- get_data(ensembl = opt[['ensembl']])  # default: ensembl=FALSE
@@ -176,24 +161,19 @@ for (sample_name in samples) {
         )
         sce_counts[["cell_type"]] <- predictions[['labels']]
 
-        # not needed yet
         # plotScoreHeatmap(predictions)
 
         # Plot UMAP
-        seurat_counts <- as.Seurat(sce_counts, counts = NULL)
-        fig <- DimPlot(
-            seurat_counts, reduction = "UMAP", 
-            group.by = "cell_type",
-            # split.by = "treatment",  # facet if necessary
-            label = FALSE
-        ) + ggtitle("Labeled Clusters")
-
+        seurat_obj <- as.Seurat(sce_counts, counts = NULL)
+        DimPlot(seurat_obj,
+                reduction = "UMAP", 
+                group.by = "cell_type",
+                # split.by = "sample_name",  # facet if necessary
+                label = TRUE
+            ) + ggtitle("Labeled Clusters")
         if (!troubleshooting) {
-            ggsave(file.path(
-                       wd, figures_dir, sample_name,
-                       paste0('umap-', sample_name, '-', tolower(opt[['celldex']]), '_labeled.png')
-                   ),
-                   plot = fig,
+            ggsave(file.path(wd, figures_dir, sample_name,
+                       paste0('umap-', sample_name, '-', tolower(opt[['celldex']]), '_labeled.png')),
                    height=800, width=1000, dpi=300, units="px", scaling=0.5)
         }
     },

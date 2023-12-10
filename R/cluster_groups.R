@@ -8,8 +8,8 @@ library('rjson')
 library('optparse')
 library('logr')
 import::from('magrittr', '%>%', .character_only=TRUE)
-import::from('DropletUtils', 'write10xCounts', .character_only=TRUE)
 import::from('SingleR', 'SingleR', .character_only=TRUE)
+# import::from('DropletUtils', 'emptyDrops', 'write10xCounts', .character_only=TRUE)
 import::from('ggplot2', 'ggsave', 'ggtitle', .character_only=TRUE)
 import::from(file.path(wd, 'R', 'utils', 'file_io.R'),
     'read_10x', .character_only=TRUE)
@@ -77,29 +77,30 @@ config <- fromJSON(file=file.path(wd, opt[['input-dir']], opt[['config']]))
 for (group_name in names(config)) {
 
     # ----------------------------------------------------------------------
-    # Read Seurat Objects
+    # Read Data
 
     log_print(paste(Sys.time(), 'Reading Seurat objects...'))
 
     sample_names <- config[[group_name]]
+    
     expr_mtxs <- new.env()
-
     for (sample_name in sample_names) {
 
         log_print(paste(Sys.time(), 'Reading...', sample_name))
 
-        tryCatch({            
-            expr_mtx <- read_10x(file.path(wd, opt[['input-dir']], sample_name))  # read seurat
+        tryCatch({
 
+            expr_mtx <- read_10x(file.path(wd, opt[['input-dir']], sample_name))
             tmp_seurat_obj <- CreateSeuratObject(counts = expr_mtx, min.cells = 3) %>% 
                 NormalizeData(verbose = FALSE) %>% 
                 FindVariableFeatures(verbose = FALSE)
+            tmp_seurat_obj$sample_name <- sample_name
 
-            tmp_seurat_obj$treatment <- sample_name
+            # filter
             tmp_seurat_obj <- subset(tmp_seurat_obj, subset = (
                 (nCount_RNA < 20000) & (nCount_RNA > 1000) & (nFeature_RNA > 1000))
-            )  # filter
-
+            ) 
+            
             # seurat_obj <- run_standard_clustering(seurat_obj, ndim=40)  # cluster
             expr_mtxs[[sample_name]] <- tmp_seurat_obj
         },
@@ -115,7 +116,7 @@ for (group_name in names(config)) {
     expr_mtxs <- as.list(expr_mtxs)
 
     # ----------------------------------------------------------------------
-    # Integrate data, then cluster
+    # Integrate data
 
     log_print(paste(Sys.time(), 'Integrating data...'))
 
@@ -125,17 +126,36 @@ for (group_name in names(config)) {
         anchor.features = integration_features
     )
     seurat_obj <- IntegrateData(anchorset = integration_anchors)
-    seurat_obj <- run_standard_clustering(seurat_obj, ndim=30)
 
-    # save this for plotting later
+    # ----------------------------------------------------------------------
+    # Cluster
+
+    seurat_obj <- run_standard_clustering(seurat_obj, ndim=30)
     if (!troubleshooting) {
         if (!dir.exists(file.path(wd, opt[['output-dir']], 'integrated'))) {
             dir.create(file.path(wd, opt[['output-dir']], 'integrated'), recursive=TRUE)
         }
         save(seurat_obj,
-             file=file.path(
-                wd, opt[['output-dir']], 'integrated', paste0(group_name,'.RData')
-            ))
+             file=file.path(wd, opt[['output-dir']], 'integrated',
+                            paste0(group_name,'.RData')) )
+    }
+
+    # Plot UMAP for specific gene of interest
+    FeaturePlot(seurat_obj, 
+                reduction = "umap", 
+                features = opt[['gene-of-interest']],
+                pt.size = 0.4, 
+                order = TRUE,
+                # split.by = "sample_name",  # no need to facet
+                min.cutoff = 'q10',
+                label = FALSE) + ggtitle(paste(opt[['gene-of-interest']], 'in', group_name))
+    if (!troubleshooting) {
+        if (!dir.exists(file.path(wd, figures_dir, 'integrated'))) {
+            dir.create(file.path(wd, figures_dir, 'integrated'), recursive=TRUE)
+        }
+        ggsave(file.path(wd, figures_dir, 'integrated',
+                   paste0('umap-integrated-', group_name, '-', tolower(opt[['gene-of-interest']]), '.png')),
+               height=800, width=800, dpi=300, units="px", scaling=0.5)
     }
 
     # ----------------------------------------------------------------------
@@ -155,50 +175,19 @@ for (group_name in names(config)) {
     )
     sce_counts[["cell_type"]] <- predictions[['labels']]
 
-
-    # ----------------------------------------------------------------------
-    # Plot UMAP
-
-    log_print(paste(Sys.time(), 'Plotting...'))
-
-    # not needed yet
     # plotScoreHeatmap(predictions)
 
-    seurat_counts <- as.Seurat(sce_counts, counts = NULL)
-    fig <- DimPlot(
-        seurat_counts, reduction = "UMAP", 
-        group.by = "cell_type",
-        # split.by = "treatment",  # facet if necessary
-        label = TRUE
-    ) + ggtitle(group_name)
-
+    seurat_obj <- as.Seurat(sce_counts, counts = NULL)
+    DimPlot(seurat_obj,
+            reduction = "UMAP", 
+            group.by = "cell_type",
+            # split.by = "sample_name",  # facet if necessary
+            label = TRUE
+        ) + ggtitle(group_name)
     if (!troubleshooting) {
-        if (!dir.exists(file.path(wd, figures_dir, 'integrated'))) {
-            dir.create(file.path(wd, figures_dir, 'integrated'), recursive=TRUE)
-        }
         ggsave(file.path(wd, figures_dir, 'integrated',
-                         paste0('umap-integrated-', group_name, '.png')),
+                         paste0('umap-integrated-', group_name, '-', tolower(opt[['celldex']]), '_labeled.png')),
                height=800, width=1000, dpi=300, units="px", scaling=0.5)
-    }
-
-    # Plot UMAP for specific gene of interest
-    FeaturePlot(seurat_obj, 
-                reduction = "umap", 
-                features = opt[['gene-of-interest']],
-                pt.size = 0.4, 
-                order = TRUE,
-                # split.by = "treatment",  # no need to facet
-                min.cutoff = 'q10',
-                label = FALSE) + ggtitle(paste(opt[['gene-of-interest']], 'in', group_name))
-    if (!troubleshooting) {
-        ggsave(
-            file.path(
-                wd, figures_dir, 'integrated',
-                paste0('umap-integrated-', group_name, '-', tolower(opt[['gene-of-interest']]), '.png')
-            ),
-            height=800, width=800,
-            dpi=300, units="px", scaling=0.5
-        )
     }
 
 }
