@@ -10,9 +10,11 @@ Install the following packages in R:
 
 ```R
 # regular packages
-install.packages('Matrix')
 install.packages('dplyr')
-install.packages('shinydashboard')
+install.packages('Matrix')
+BiocManager::install('Seurat')
+BiocManager::install('SingleR')
+BiocManager::install('celldex')
 BiocManager::install('DropletUtils')
 ```
 
@@ -22,13 +24,9 @@ These are the available scripts, to be run in the order listed.
 
 | Script Number | Script Name | Description |
 | :--- | ------ | ----------- |
-| 1 | R/single_analysis.R |  |
-| 2 | R/scripts/integrated_analysis.R  |  |
-| 3 | R/scripts/plot\_single\_umap.sh |  |
-| 4 | R/scripts/assign_clusters.sh |  |
-
-How this should go:
-Integrate if necessary, otherwise don't.
+| 1 | R/cluster_samples.R | Individually clusters each sample in a dataset. |
+| 2 | R/cluster_groups.R  | Clusters groups of samples in a dataset based on the config.json file. |
+| 3 | R/shiny_umap.sh | Takes saved RData and plots them. |
 
 
 ## Copyright
