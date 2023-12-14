@@ -1,19 +1,24 @@
 # library('Matrix')
 wd = dirname(dirname(this.path::here()))
-import::here('Matrix', 'readMM', .character_only=TRUE)
-import::here('readr', 'read_tsv', .character_only=TRUE)
-import::here(file.path(wd, 'R', 'utils', 'list_tools.R'),
+import::here(Matrix, 'readMM')
+import::here(readr, 'read_tsv')
+import::here(file.path(wd, 'R', 'tools', 'list_tools.R'),
     'filter_list_for_match', .character_only=TRUE)
 
 ## Functions
 ## list_files
-## read_10x
 ## load_rdata
+## read_10x
 
 
-#' list all files in all subdirectories with a given extension
+#' List all files with a specific extension
 #' 
-#' @export
+#' @description
+#' This is a thin wrapper around [list.files()].
+#' 
+#' @references
+#' \href{https://stackoverflow.com/questions/7187442/filter-a-vector-of-strings-based-on-string-matching}{StackOverflow post}
+#' 
 list_files <- function(dir_path, ext=NULL, recursive = TRUE) {
     all_files = list.files(dir_path, recursive = recursive, full.name=TRUE)
 
@@ -26,10 +31,29 @@ list_files <- function(dir_path, ext=NULL, recursive = TRUE) {
 }
 
 
-#' Alternative to Seurat::Read10x that enables you to specify the filenames
-#' See: https://github.com/satijalab/seurat/issues/4096
+#' Loads an RData file and allows you to store it in a chosen variable
+#' 
+#' @description
+#' Without this function, base R uses the filename as the variable name
+#' 
+#' @references
+#' \href{https://stackoverflow.com/questions/5577221/can-i-load-a-saved-r-object-into-a-new-object-name}{StackOverflow post}
+#' 
+load_rdata <- function(filepath){
+    load(filepath)
+    return( get(ls()[ls() != "filepath"]) )
+}
+
+
+#' Alternative to  that enables you to specify the filenames
 #'
-#' @export
+#' @description Mainly used to simplify scripts
+#' 
+#' @references
+#'\href{https://github.com/satijalab/seurat/issues/4096}{Github issue}
+#'
+#' @seealso [Seurat::Read10X()]
+#' 
 read_10x <- function(
     data_dir,
     matrix_file='matrix.mtx',
@@ -70,15 +94,4 @@ read_10x <- function(
     # )
 
     return(expr_mtx)
-}
-
-
-#' loads an RData file, and returns it
-#' Without this function, base R uses the filename as the variable name
-#' See: https://stackoverflow.com/questions/5577221/can-i-load-a-saved-r-object-into-a-new-object-name
-#' 
-#' @export
-load_rdata <- function(filepath){
-    load(filepath)
-    return( get(ls()[ls() != "filepath"]) )
 }

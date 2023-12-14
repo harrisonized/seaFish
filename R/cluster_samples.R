@@ -10,9 +10,9 @@ library('logr')
 import::from('magrittr', '%>%', .character_only=TRUE)
 import::from('SingleR', 'SingleR', .character_only=TRUE)
 # import::from('DropletUtils', 'emptyDrops', 'write10xCounts', .character_only=TRUE)
-import::from(file.path(wd, 'R', 'utils', 'file_io.R'),
+import::from(file.path(wd, 'R', 'tools', 'file_io.R'),
     'read_10x', .character_only=TRUE)
-import::here(file.path(wd, 'R', 'utils', 'list_tools.R'),
+import::here(file.path(wd, 'R', 'tools', 'list_tools.R'),
     'multiple_replacement', .character_only=TRUE)
 source(file.path(wd, 'R', 'functions', 'bio.R'))  # celldex_switch, run_standard_clustering
 

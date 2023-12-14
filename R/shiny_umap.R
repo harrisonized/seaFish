@@ -6,7 +6,7 @@ suppressPackageStartupMessages(library('Seurat'))
 library('shiny')
 library('ggplot2')
 library('optparse')
-import::from(file.path(wd, 'R', 'utils', 'file_io.R'),
+import::from(file.path(wd, 'R', 'tools', 'file_io.R'),
     'load_rdata', .character_only=TRUE)
 
 options(shiny.host = '127.0.0.1')
