@@ -8,13 +8,12 @@ library("ggplot2")
 library('rjson')
 library('optparse')
 library('logr')
-import::from('magrittr', '%>%', .character_only=TRUE)
-import::here('SingleR', 'SingleR', 'plotScoreHeatmap', .character_only=TRUE)
-import::from('grid', 'grid.newpage', 'grid.draw', .character_only=TRUE)
-# import::from('DropletUtils', 'emptyDrops', 'write10xCounts', .character_only=TRUE)
-import::from('ggplot2',
-    'theme', 'element_text', 'element_blank', 'ggtitle', 'ggsave',
-    .character_only=TRUE
+import::from(magrittr, '%>%')
+import::from(grid, 'grid.newpage', 'grid.draw')
+import::from(SingleR, 'SingleR', 'plotScoreHeatmap')
+# import::from(DropletUtils, 'emptyDrops', 'write10xCounts')
+import::from(ggplot2,
+    'theme', 'element_text', 'element_blank', 'ggtitle', 'ggsave'
 )
 import::from(file.path(wd, 'R', 'tools', 'file_io.R'),
     'read_10x', .character_only=TRUE)
