@@ -65,8 +65,8 @@ server <- function(input, output, session) {
     # clusters
     output$clusters_img <- renderImage({
         filepath = file.path(
-            wd, opt[['figures-dir']],
-            paste0('umap-integrated-', input$dataset, '.png')
+            wd, opt[['figures-dir']], input$dataset,
+            paste('umap', 'integrated', input$dataset, 'immgen_labeled.png', sep='-')
         )
         list(
             src = filepath,

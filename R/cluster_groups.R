@@ -4,19 +4,24 @@
 
 wd = dirname(this.path::here())  # wd = '~/github/R/seaFish'
 suppressPackageStartupMessages(library('Seurat'))
+library("ggplot2")
 library('rjson')
 library('optparse')
 library('logr')
 import::from('magrittr', '%>%', .character_only=TRUE)
-import::from('SingleR', 'SingleR', .character_only=TRUE)
+import::here('SingleR', 'plotScoreHeatmap', .character_only=TRUE)
+import::from('grid', 'grid.newpage', 'grid.draw', .character_only=TRUE)
 # import::from('DropletUtils', 'emptyDrops', 'write10xCounts', .character_only=TRUE)
-import::from('ggplot2', 'ggsave', 'ggtitle', .character_only=TRUE)
+import::from('ggplot2',
+    'theme', 'element_text', 'element_blank', 'ggtitle', 'ggsave',
+    .character_only=TRUE
+)
 import::from(file.path(wd, 'R', 'tools', 'file_io.R'),
     'read_10x', .character_only=TRUE)
 import::from(file.path(wd, 'R', 'tools', 'list_tools.R'),
     'multiple_replacement', .character_only=TRUE)
-import::from(file.path(wd, 'R', 'functions', 'bio.R'),
-    'celldex_switch', 'run_standard_clustering', .character_only=TRUE)
+import::from(file.path(wd, 'R', 'functions', 'single_cell.R'),
+    'run_standard_analysis_workflow', 'celldex_predict_clusters', .character_only=TRUE)
 
 
 # ----------------------------------------------------------------------
@@ -77,10 +82,12 @@ config <- fromJSON(file=file.path(wd, opt[['input-dir']], opt[['config']]))
 
 for (group_name in names(config)) {
 
+
     # ----------------------------------------------------------------------
     # Read Data
 
-    log_print(paste(Sys.time(), 'Reading Seurat objects...'))
+    loop_start_time <- Sys.time()
+    log_print(paste(loop_start_time, 'Reading Seurat objects...'))
 
     sample_names <- config[[group_name]]
     
@@ -102,7 +109,7 @@ for (group_name in names(config)) {
                 (nCount_RNA < 20000) & (nCount_RNA > 1000) & (nFeature_RNA > 1000))
             ) 
             
-            # seurat_obj <- run_standard_clustering(seurat_obj, ndim=40)  # cluster
+            # seurat_obj <- run_standard_analysis_workflow(seurat_obj, ndim=40)  # cluster
             expr_mtxs[[sample_name]] <- tmp_seurat_obj
         },
 
@@ -116,8 +123,9 @@ for (group_name in names(config)) {
 
     expr_mtxs <- as.list(expr_mtxs)
 
+
     # ----------------------------------------------------------------------
-    # Integrate data
+    # Integrate and Label Clusters
 
     log_print(paste(Sys.time(), 'Integrating data...'))
 
@@ -127,11 +135,15 @@ for (group_name in names(config)) {
         anchor.features = integration_features
     )
     seurat_obj <- IntegrateData(anchorset = integration_anchors)
+    seurat_obj <- run_standard_analysis_workflow(seurat_obj, ndim=30)  # UMAP
 
-    # ----------------------------------------------------------------------
-    # Cluster
 
-    seurat_obj <- run_standard_clustering(seurat_obj, ndim=30)
+    log_print(paste(Sys.time(), 'Labeling clusters...'))
+
+    predictions <- celldex_predict_clusters(seurat_obj,  ensembl=opt[['ensembl']])
+    seurat_obj$cell_type <- predictions[['labels']]
+
+    # save
     if (!troubleshooting) {
         if (!dir.exists(file.path(wd, opt[['output-dir']], 'integrated'))) {
             dir.create(file.path(wd, opt[['output-dir']], 'integrated'), recursive=TRUE)
@@ -141,7 +153,52 @@ for (group_name in names(config)) {
                             paste0(group_name,'.RData')) )
     }
 
-    # Plot UMAP for specific gene of interest
+
+    # ----------------------------------------------------------------------
+    # Plot
+
+    log_print(paste(Sys.time(), 'Plotting...'))
+
+    # Plot unlabeled clusters
+    DimPlot(seurat_obj,
+            reduction = "umap",
+            split.by = "orig.ident",
+            label = TRUE) +
+        theme(strip.text.x = element_blank(), plot.title = element_text(hjust = 0.5)) +
+        ggtitle("Unlabeled Clusters")
+    if (!troubleshooting) {
+        if (!dir.exists(file.path(wd, figures_dir, 'integrated', group_name))) {
+            dir.create(file.path(wd, figures_dir, 'integrated', group_name), recursive=TRUE)
+        }
+        ggsave(file.path(wd, figures_dir, 'integrated', group_name,
+                         paste0('umap-integrated-', group_name, '-', 'unlabeled.png')),
+               height=800, width=1000, dpi=300, units="px", scaling=0.5)
+    }
+
+    # Plot CellDex labeled clusters
+    DimPlot(seurat_obj,
+            reduction = "umap", 
+            group.by = "cell_type",
+            # split.by = "sample_name",  # facet if necessary
+            label = TRUE
+        ) + ggtitle(group_name)
+    if (!troubleshooting) {
+        ggsave(file.path(wd, figures_dir, 'integrated', group_name,
+                         paste0('umap-integrated-', group_name, '-', tolower(opt[['celldex']]), '_labeled.png')),
+               height=800, width=1000, dpi=300, units="px", scaling=0.5)
+    }
+
+    # Plot CellDex QC Heatmap
+    fig <- plotScoreHeatmap(predictions)
+    if (!troubleshooting) {
+        png(file.path(wd, figures_dir, 'integrated', group_name,
+                      paste0('heatmap-', group_name, '-', 'predictions.png')))
+        grid::grid.newpage()
+        grid::grid.draw(fig$gtable)
+        dev.off()
+    }
+
+    # Plot gene of interest
     FeaturePlot(seurat_obj, 
                 reduction = "umap", 
                 features = opt[['gene-of-interest']],
@@ -151,46 +208,12 @@ for (group_name in names(config)) {
                 min.cutoff = 'q10',
                 label = FALSE) + ggtitle(paste(opt[['gene-of-interest']], 'in', group_name))
     if (!troubleshooting) {
-        if (!dir.exists(file.path(wd, figures_dir, 'integrated'))) {
-            dir.create(file.path(wd, figures_dir, 'integrated'), recursive=TRUE)
-        }
-        ggsave(file.path(wd, figures_dir, 'integrated',
+        ggsave(file.path(wd, figures_dir, 'integrated', group_name,
                    paste0('umap-integrated-', group_name, '-', tolower(opt[['gene-of-interest']]), '.png')),
                height=800, width=800, dpi=300, units="px", scaling=0.5)
     }
 
-    # ----------------------------------------------------------------------
-    # Label clusters
-
-    log_print(paste(Sys.time(), 'Labeling clusters...'))
-
-    # note: this overwrites the labels generated by the standard clustering workflow
-    sce_counts <- as.SingleCellExperiment(seurat_obj)
-    get_data=celldex_switch[[opt$celldex]]
-    ref_data <- get_data(ensembl = opt[['ensembl']])  # default: ensembl=FALSE
-    predictions <- SingleR(
-        test=sce_counts,
-        assay.type.test=1,
-        ref=ref_data,
-        labels=ref_data[['label.main']]
-    )
-    sce_counts[["cell_type"]] <- predictions[['labels']]
-
-    # plotScoreHeatmap(predictions)
-
-    seurat_obj <- as.Seurat(sce_counts, counts = NULL)
-    DimPlot(seurat_obj,
-            reduction = "UMAP", 
-            group.by = "cell_type",
-            # split.by = "sample_name",  # facet if necessary
-            label = TRUE
-        ) + ggtitle(group_name)
-    if (!troubleshooting) {
-        ggsave(file.path(wd, figures_dir, 'integrated',
-                         paste0('umap-integrated-', group_name, '-', tolower(opt[['celldex']]), '_labeled.png')),
-               height=800, width=1000, dpi=300, units="px", scaling=0.5)
-    }
-
+    log_print(paste("Loop completed in:", difftime(Sys.time(), loop_start_time)))
 }
 
 end_time = Sys.time()

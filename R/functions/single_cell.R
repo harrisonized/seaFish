@@ -1,25 +1,28 @@
 import::here('celldex',
-    'BlueprintEncodeData',
-    'HumanPrimaryCellAtlasData',
-    'DatabaseImmuneCellExpressionData',
-    'ImmGenData',
-    'MonacoImmuneData',
-    'MouseRNAseqData',
-    'NovershternHematopoieticData',
+    'BlueprintEncodeData', 'HumanPrimaryCellAtlasData',
+    'DatabaseImmuneCellExpressionData', 'ImmGenData',
+    'MonacoImmuneData', 'MouseRNAseqData', 'NovershternHematopoieticData',
     .character_only=TRUE
 )
 import::here('Seurat',
     'ScaleData', 'RunPCA', 'RunUMAP', 'FindNeighbors', 'FindClusters',
+    'as.SingleCellExperiment',
     .character_only=TRUE
 )
+import::here('SingleR', 'SingleR', .character_only=TRUE)
 
 ## Objects
 ## celldex_switch
 
 ## Functions
-## run_standard_clustering
+## run_standard_analysis_workflow
+## celldex_predict_clusters
 
 
+#' Celldex Switch
+#' 
+#' @description Choose a dataset: ENCODE, HPCA, DICE, Immgen, Monaco, MouseRNAseq, Hemato
+#' 
 celldex_switch=list2env(list(
 
     #259 RNA-seq samples of pure stroma and immune cells as generated and supplied by Blueprint and ENCODE
@@ -45,15 +48,38 @@ celldex_switch=list2env(list(
 ))
 
 
-#' This is repeated across multiple analyses
-#' See: https://satijalab.org/seurat/articles/integration_introduction.html#perform-an-integrated-analysis
+#' Standard Analysis Workflow
 #'
-#' @export
-run_standard_clustering <- function(seurat_obj, ndim=40) {
+#' @references
+#' \href{https://satijalab.org/seurat/articles/integration_introduction.html#perform-an-integrated-analysis}{Seurat Documentation}
+#' 
+run_standard_analysis_workflow <- function(seurat_obj, ndim=40) {
+    # seurat_obj <- NormalizeData(seurat_obj, verbose = FALSE)
+    # seurat_obj <- FindVariableFeatures(seurat_obj, verbose = FALSE)
     seurat_obj <- ScaleData(seurat_obj, verbose = FALSE)
     seurat_obj <- RunPCA(seurat_obj, npcs = ndim, verbose = FALSE)
-    seurat_obj <- RunUMAP(seurat_obj, reduction = "pca", dims = 1:ndim)
     seurat_obj <- FindNeighbors(seurat_obj, reduction = "pca", dims = 1:ndim)
     seurat_obj <- FindClusters(seurat_obj, resolution = 0.5)
+    seurat_obj <- RunUMAP(seurat_obj, reduction = "pca", dims = 1:ndim)
     return(seurat_obj)
+}
+
+
+#' Label Clusters Using Celldex
+#' 
+#' @description Note: This ignores the clusters found in standard_analysis_workflow.
+#' 
+celldex_predict_clusters <- function(seurat_obj, ensembl=FALSE) {
+
+    sce_counts <- as.SingleCellExperiment(seurat_obj)
+    ref_data <- celldex_switch[[opt$celldex]](ensembl=ensembl)
+
+    predictions <- SingleR(
+        test=sce_counts,
+        assay.type.test=1,
+        ref=ref_data,
+        labels=ref_data[['label.main']]
+    )
+
+    return(predictions)
 }
