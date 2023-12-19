@@ -13,9 +13,10 @@ import::from('SingleR', 'SingleR', .character_only=TRUE)
 import::from('ggplot2', 'ggsave', 'ggtitle', .character_only=TRUE)
 import::from(file.path(wd, 'R', 'tools', 'file_io.R'),
     'read_10x', .character_only=TRUE)
-import::here(file.path(wd, 'R', 'tools', 'list_tools.R'),
+import::from(file.path(wd, 'R', 'tools', 'list_tools.R'),
     'multiple_replacement', .character_only=TRUE)
-source(file.path(wd, 'R', 'functions', 'bio.R'))  # celldex_switch, run_standard_clustering
+import::from(file.path(wd, 'R', 'functions', 'bio.R'),
+    'celldex_switch', 'run_standard_clustering', .character_only=TRUE)
 
 
 # ----------------------------------------------------------------------
