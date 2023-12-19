@@ -36,28 +36,27 @@ opt = parse_args(opt_parser)
 
 
 # user interface elements and layout
-ui <- fluidPage(
+ui <- shinyUI(fluidPage(
     titlePanel("scRNAseq Data"),
     inputPanel(
         selectInput("dataset",
                 "Dataset",
                 c("bm", "lung", "pb", 'spleen')
         ),
-        textInput("gene",
-                "Gene Name",
-                value = "Dnase1l1"
-        ),
-        align="center"
+        selectInput(
+            inputId="gene",
+            label="Gene Name",
+            choices=""
+        ), align="center"
     ),
     fluidRow(
         splitLayout(
             cellWidths = c("50%", "50%"),
             plotOutput("clusters_img", height=600),
             plotOutput("gene_fig", height=600)
-        ),
-        align="center",
+        ), align="center",
     )
-)
+))
 
 
 # server-side computations
@@ -74,6 +73,7 @@ server <- function(input, output, session) {
             height = "600px", width = "750px"
         )
     }, deleteFile = FALSE)
+
 
     # gene of interest
     output$gene_fig <- renderPlot({
@@ -93,6 +93,21 @@ server <- function(input, output, session) {
         ) + ggtitle(input$gene)
     }, height=600, width=750, scaling=1.5)
 
+    gene_names <- reactive({
+        seurat_obj <- load_rdata(
+            file.path(wd, opt[['input-dir']],
+            paste0(input$dataset, '.RData'))
+        )
+        sort(unique(seurat_obj@assays[['RNA']]@data@Dimnames[[1]]))
+    })
+
+    observe({
+        updateSelectInput(
+            session,
+            inputId="gene",
+            choices = gene_names()
+        )
+    })
 }
 
 # run app
