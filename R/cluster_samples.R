@@ -7,14 +7,16 @@ suppressPackageStartupMessages(library('Seurat'))
 library('ggplot2')
 library('optparse')
 library('logr')
-import::from('magrittr', '%>%', .character_only=TRUE)
-# import::from('DropletUtils', 'emptyDrops', 'write10xCounts', .character_only=TRUE)
+import::from(magrittr, '%>%')
+import::from(SingleR, 'SingleR', 'plotScoreHeatmap')
+import::from(grid, 'grid.newpage', 'grid.draw')
+# import::from(DropletUtils, 'emptyDrops', 'write10xCounts', .character_only=TRUE)
 import::from(file.path(wd, 'R', 'tools', 'file_io.R'),
     'read_10x', .character_only=TRUE)
 import::from(file.path(wd, 'R', 'tools', 'list_tools.R'),
     'multiple_replacement', .character_only=TRUE)
 import::from(file.path(wd, 'R', 'functions', 'single_cell.R'),
-    'run_standard_analysis_workflow', 'celldex_predict_clusters', .character_only=TRUE)
+    'celldex_switch', 'run_standard_analysis_workflow', .character_only=TRUE)
 
 
 # ----------------------------------------------------------------------
@@ -87,6 +89,9 @@ for (sample_name in samples) {
         # QC plot 1
         VlnPlot(seurat_obj, c("nCount_RNA", "nFeature_RNA"), pt.size = 0.1)
         if (!troubleshooting) {
+            if (!dir.exists(file.path(wd, figures_dir, sample_name, 'qc'))) {
+                dir.create(file.path(wd, figures_dir, sample_name, 'qc'), recursive=TRUE)
+            }
             ggsave(file.path(wd, figures_dir, sample_name, 'qc',
                        paste0('violin-', sample_name, '-raw_qc.png')),
                    height=800, width=1200, dpi=300, units="px", scaling=0.5)
@@ -121,12 +126,18 @@ for (sample_name in samples) {
 
         log_print(paste(Sys.time(), 'Labeling clusters...'))
 
-        predictions <- celldex_predict_clusters(seurat_obj, ensembl = opt[['ensembl']])
+        ref_data <- celldex_switch[[opt$celldex]](ensembl=opt[['ensembl']])
+        predictions <- SingleR(
+            test=as.SingleCellExperiment(seurat_obj),
+            assay.type.test=1,
+            ref=ref_data,
+            labels=ref_data[['label.main']]
+        )
         seurat_obj$cell_type <- predictions[['labels']]
 
 
-        # ----------------------------------------------------------------------
-        # Plot
+    # ----------------------------------------------------------------------
+    # Plot Overview
 
         log_print(paste(Sys.time(), 'Plotting...'))
 
@@ -138,9 +149,6 @@ for (sample_name in samples) {
             theme(strip.text.x = element_blank(), plot.title = element_text(hjust = 0.5)) +
             ggtitle("Unlabeled Clusters")
         if (!troubleshooting) {
-            if (!dir.exists(file.path(wd, figures_dir, sample_name))) {
-                dir.create(file.path(wd, figures_dir, sample_name), recursive=TRUE)
-            }
             ggsave(file.path(wd, figures_dir, sample_name,
                              paste0('umap-', sample_name, '-clusters.png')),
                    height=800, width=800, dpi=300, units="px", scaling=0.5)
@@ -159,8 +167,24 @@ for (sample_name in samples) {
                    height=800, width=1000, dpi=300, units="px", scaling=0.5)
         }
 
-        # Plot gene of interest
+        # Plot CellDex QC Heatmap
+        fig <- plotScoreHeatmap(predictions)
+        if (!troubleshooting) {
+            png(file.path(wd, figures_dir, sample_name,  'qc',
+                          paste0('heatmap-', sample_name, '-', 'predictions.png')),
+                width=2400, height=1600, res=360, units='px'
+            )
+            grid::grid.newpage()
+            grid::grid.draw(fig$gtable)
+            dev.off()
+        }
+
+        # ----------------------------------------------------------------------
+        # Gene of Interest
+
         gene = opt[['gene-of-interest']]
+        
+        # Plot UMAP
         FeaturePlot(seurat_obj,
                     reduction = "umap",
                     # split.by = "orig.ident",
@@ -171,6 +195,18 @@ for (sample_name in samples) {
             ggsave(file.path(wd, figures_dir, sample_name,
                        paste0('umap-', sample_name, '-', tolower(gene), '.png')),
                    height=800, width=800, dpi=300, units="px", scaling=0.5)
+        }
+
+        # Plot Ridge
+        RidgePlot(
+            seurat_obj,
+            features=gene,
+            group.by = "cell_type"
+        ) + ggtitle(gene)
+        if (!troubleshooting) {
+            ggsave(file.path(wd, figures_dir, sample_name,
+                       paste0('ridge-', sample_name, '-', tolower(gene), '.png')),
+                   height=800, width=1200, dpi=300, units="px", scaling=0.5)
         }
     },
 

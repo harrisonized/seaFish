@@ -1,22 +1,18 @@
-import::here('celldex',
+import::here(celldex,
     'BlueprintEncodeData', 'HumanPrimaryCellAtlasData',
     'DatabaseImmuneCellExpressionData', 'ImmGenData',
-    'MonacoImmuneData', 'MouseRNAseqData', 'NovershternHematopoieticData',
-    .character_only=TRUE
+    'MonacoImmuneData', 'MouseRNAseqData', 'NovershternHematopoieticData'
 )
-import::here('Seurat',
-    'ScaleData', 'RunPCA', 'RunUMAP', 'FindNeighbors', 'FindClusters',
-    'as.SingleCellExperiment',
-    .character_only=TRUE
+import::here(Seurat,
+    'ScaleData', 'RunPCA', 'RunUMAP', 'FindNeighbors', 'FindClusters'
 )
-import::here('SingleR', 'SingleR', .character_only=TRUE)
+# import::here(SingleR, 'SingleR')
 
 ## Objects
 ## celldex_switch
 
 ## Functions
 ## run_standard_analysis_workflow
-## celldex_predict_clusters
 
 
 #' Celldex Switch
@@ -62,24 +58,4 @@ run_standard_analysis_workflow <- function(seurat_obj, ndim=40) {
     seurat_obj <- FindClusters(seurat_obj, resolution = 0.5)
     seurat_obj <- RunUMAP(seurat_obj, reduction = "pca", dims = 1:ndim)
     return(seurat_obj)
-}
-
-
-#' Label Clusters Using Celldex
-#' 
-#' @description Note: This ignores the clusters found in standard_analysis_workflow.
-#' 
-celldex_predict_clusters <- function(seurat_obj, ensembl=FALSE) {
-
-    sce_counts <- as.SingleCellExperiment(seurat_obj)
-    ref_data <- celldex_switch[[opt$celldex]](ensembl=ensembl)
-
-    predictions <- SingleR(
-        test=sce_counts,
-        assay.type.test=1,
-        ref=ref_data,
-        labels=ref_data[['label.main']]
-    )
-
-    return(predictions)
 }

@@ -9,7 +9,7 @@ library('rjson')
 library('optparse')
 library('logr')
 import::from('magrittr', '%>%', .character_only=TRUE)
-import::here('SingleR', 'plotScoreHeatmap', .character_only=TRUE)
+import::here('SingleR', 'SingleR', 'plotScoreHeatmap', .character_only=TRUE)
 import::from('grid', 'grid.newpage', 'grid.draw', .character_only=TRUE)
 # import::from('DropletUtils', 'emptyDrops', 'write10xCounts', .character_only=TRUE)
 import::from('ggplot2',
@@ -21,7 +21,7 @@ import::from(file.path(wd, 'R', 'tools', 'file_io.R'),
 import::from(file.path(wd, 'R', 'tools', 'list_tools.R'),
     'multiple_replacement', .character_only=TRUE)
 import::from(file.path(wd, 'R', 'functions', 'single_cell.R'),
-    'run_standard_analysis_workflow', 'celldex_predict_clusters', .character_only=TRUE)
+    'celldex_switch', 'run_standard_analysis_workflow', .character_only=TRUE)
 
 
 # ----------------------------------------------------------------------
@@ -137,10 +137,15 @@ for (group_name in names(config)) {
     seurat_obj <- IntegrateData(anchorset = integration_anchors)
     seurat_obj <- run_standard_analysis_workflow(seurat_obj, ndim=30)  # UMAP
 
-
     log_print(paste(Sys.time(), 'Labeling clusters...'))
 
-    predictions <- celldex_predict_clusters(seurat_obj,  ensembl=opt[['ensembl']])
+    ref_data <- celldex_switch[[opt$celldex]](ensembl=opt[['ensembl']])
+    predictions <- SingleR(
+        test=as.SingleCellExperiment(seurat_obj),
+        assay.type.test=1,
+        ref=ref_data,
+        labels=ref_data[['label.main']]
+    )
     seurat_obj$cell_type <- predictions[['labels']]
 
     # save
@@ -155,7 +160,7 @@ for (group_name in names(config)) {
 
 
     # ----------------------------------------------------------------------
-    # Plot
+    # Plot Overview
 
     log_print(paste(Sys.time(), 'Plotting...'))
 
@@ -192,25 +197,44 @@ for (group_name in names(config)) {
     fig <- plotScoreHeatmap(predictions)
     if (!troubleshooting) {
         png(file.path(wd, figures_dir, 'integrated', group_name,
-                      paste0('heatmap-', group_name, '-', 'predictions.png')))
+                      paste0('heatmap-', group_name, '-', 'predictions.png')),
+            width=2400, height=1600, res=360, units='px'
+        )
         grid::grid.newpage()
         grid::grid.draw(fig$gtable)
         dev.off()
     }
 
-    # Plot gene of interest
+    # ----------------------------------------------------------------------
+    # Gene of Interest
+
+    gene = opt[['gene-of-interest']]
+    
+    # Plot UMAP
     FeaturePlot(seurat_obj, 
                 reduction = "umap", 
-                features = opt[['gene-of-interest']],
+                features = gene,
                 pt.size = 0.4, 
                 order = TRUE,
                 # split.by = "sample_name",  # no need to facet
                 min.cutoff = 'q10',
-                label = FALSE) + ggtitle(paste(opt[['gene-of-interest']], 'in', group_name))
+                label = FALSE) + ggtitle(paste(gene, 'in', group_name))
     if (!troubleshooting) {
         ggsave(file.path(wd, figures_dir, 'integrated', group_name,
-                   paste0('umap-integrated-', group_name, '-', tolower(opt[['gene-of-interest']]), '.png')),
+                   paste0('umap-integrated-', group_name, '-', tolower(gene), '.png')),
                height=800, width=800, dpi=300, units="px", scaling=0.5)
+    }
+
+    # Plot Ridge
+    RidgePlot(
+        seurat_obj,
+        features=gene,
+        group.by = "cell_type"
+    ) + ggtitle(paste(gene, 'in', group_name))
+    if (!troubleshooting) {
+        ggsave(file.path(wd, figures_dir, 'integrated', group_name,
+                   paste0('ridgeline-integrated-', group_name, '-', tolower(gene), '.png')),
+               height=800, width=1200, dpi=300, units="px", scaling=0.5)
     }
 
     log_print(paste("Loop completed in:", difftime(Sys.time(), loop_start_time)))
