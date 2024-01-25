@@ -11,10 +11,11 @@ library('logr')
 import::from(magrittr, '%>%')
 import::from(grid, 'grid.newpage', 'grid.draw')
 import::from(SingleR, 'SingleR', 'plotScoreHeatmap')
-# import::from(DropletUtils, 'emptyDrops', 'write10xCounts')
+import::from(DropletUtils, 'barcodeRanks')
 import::from(ggplot2,
     'theme', 'element_text', 'element_blank', 'ggtitle', 'ggsave'
 )
+import::from(scales, 'trans_breaks', 'trans_format', 'math_format')
 import::from(file.path(wd, 'R', 'tools', 'file_io.R'),
     'read_10x', .character_only=TRUE)
 import::from(file.path(wd, 'R', 'tools', 'list_tools.R'),
@@ -55,6 +56,7 @@ option_list = list(
     make_option(c("-e", "--ensembl"),  default=FALSE,
                 metavar="FALSE", action="store_true", type="logical",
                 help="When querying celldex"),
+
     make_option(c("-g", "--gene-of-interest"), default="Dnase1l1",
                 metavar="Dnase1l1", type="character",
                 help="choose a gene"),
@@ -114,16 +116,14 @@ for (group_name in names(config)) {
 
             tmp_seurat_obj <- CreateSeuratObject(counts = expr_mtx, min.cells = 3)
             tmp_seurat_obj$sample_name <- sample_name  # consider using orig.ident
-
-
-            # ----------------------------------------------------------------------
-            # Quality Control Filters
-
             tmp_seurat_obj[["percent.mt"]] <- PercentageFeatureSet(
                 tmp_seurat_obj, pattern = "^mt-"
             )
 
-            # QC plot
+            # ----------------------------------------------------------------------
+            # QC Plots
+
+            # Standard QC Plot
             VlnPlot(tmp_seurat_obj,
                    c("nCount_RNA", "nFeature_RNA", "percent.mt"),
                    ncol = 3, pt.size = 0.1)
@@ -138,7 +138,7 @@ for (group_name in names(config)) {
                 )
             }
 
-            # QC plot 2
+            # Genes per cell vs. Counts per cell
             ggplot(tmp_seurat_obj@meta.data,
                    aes(.data[['nCount_RNA']], .data[['nFeature_RNA']])) +
                    geom_point(alpha = 0.7, size = 0.5) +
@@ -149,15 +149,58 @@ for (group_name in names(config)) {
                        height=800, width=1200, dpi=300, units="px", scaling=0.5)
             }
 
-            ## TODO:
-            ## 1. DropletUtils::barcodeRanks(tmp_seurat_obj)
-            ## 2. filter below knee point
-            ## see: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8848315/
 
-            #' Filters
-            #' See: https://www.10xgenomics.com/analysis-guides/common-considerations-for-quality-control-filters-for-single-cell-rna-seq-data
-            #' Lower bound to filter low quality cells
-            #' Upper bound to filter potential doublets (use median+3*stdev)
+            # Barcode rank plot
+            # see: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8848315/
+            # Filter below knee point
+            barcode = barcodeRanks(tmp_seurat_obj)
+            barcode_data = as.data.frame(barcode)
+            knee <- barcode@metadata$knee
+            inflection <- barcode@metadata$inflection
+
+            barcode_points = data.frame(
+                type = c("inflection", "knee"),
+                value = c(barcode@metadata$inflection, barcode@metadata$knee)
+            )
+
+            # waterfall plot
+            # See: https://sydneybiox.github.io/SingleCellPlus/qc.html#3_qc1:_waterfall_plot
+            ggplot(data = barcode_data, aes(x = rank, y = total)) +
+                geom_point() +
+                geom_hline(data = barcode_points,
+                           aes(yintercept = value,
+                               colour = type), linetype = 2) +
+                scale_x_log10(breaks = trans_breaks("log10", function(x) 10^x),
+                              labels = trans_format("log10", math_format(10^.x))) +
+                scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
+                              labels = trans_format("log10", math_format(10^.x))) +
+                labs(title = "Waterfall plot of read counts",
+                     x = "Log Rank",
+                     y = "Log Counts")
+
+            if (!troubleshooting) {
+                ggsave(file.path(wd, figures_dir, sample_name, 'qc',
+                           paste0('waterfall-', sample_name, '-log_count-log_rank.png')),
+                       height=800, width=1200, dpi=300, units="px", scaling=0.5)
+            }
+
+            # Number of cells per gene
+            # See: https://ucdavis-bioinformatics-training.github.io/2017_2018-single-cell-RNA-sequencing-Workshop-UCD_UCB_UCSF/day2/scRNA_Workshop-PART2.html
+            plot(
+                sort(rowSums(tmp_seurat_obj[['RNA']]@counts>=2)),
+                xlab="gene rank",
+                ylab="number of cells",
+                main="Cells per genes ( >= 2 )"
+            )
+
+
+            # ----------------------------------------------------------------------
+            # Filter and Normalize
+
+            # Standard filters
+            # See: https://www.10xgenomics.com/analysis-guides/common-considerations-for-quality-control-filters-for-single-cell-rna-seq-data
+            # Lower bound: filter low quality cells
+            # Upper bound: filter potential doublets
             upper_rna_count <- median(tmp_seurat_obj$nCount_RNA) + 3*sd(tmp_seurat_obj$nCount_RNA)
             upper_rna_feature <- median(tmp_seurat_obj$nFeature_RNA) + 3*sd(tmp_seurat_obj$nFeature_RNA)
             upper_pct_mt <- median(tmp_seurat_obj$percent.mt) + 3*sd(tmp_seurat_obj$percent.mt)
@@ -167,10 +210,27 @@ for (group_name in names(config)) {
                 tmp_seurat_obj,
                 subset = (
                     (nCount_RNA > 1000) & (nCount_RNA <= upper_rna_count) &
-                    (nFeature_RNA > 1000) & (nFeature_RNA <= upper_rna_feature) &
+                    (nFeature_RNA > 300) & (nFeature_RNA <= upper_rna_feature) &
                     (percent.mt <= upper_pct_mt)
                 )
             )
+
+
+            # Filter genes expressed by less than 3 cells
+            # See: https://matthieuxmoreau.github.io/EarlyPallialNeurogenesis/html-Reports/Quality_Control.html
+            
+            num_cells_per_gene <- rowSums(tmp_seurat_obj[['RNA']]@counts > 0)
+            genes_to_keep <- names(num_cells_per_gene[num_cells_per_gene >= 3])
+            tmp_seurat_obj <- tmp_seurat_obj[genes_to_keep, ]
+
+
+            # Filter barcodes below knee in waterfall plot
+            # Rather not have this, removes too many cells
+            # barcodes_to_keep <- rownames(
+            #     barcode_data[(barcode_data['total'] >= inflection), ]
+            # )
+            # tmp_seurat_obj <- tmp_seurat_obj[, barcodes_to_keep]
+
 
             # Normalize after filtering
             tmp_seurat_obj <- tmp_seurat_obj %>%
@@ -182,7 +242,11 @@ for (group_name in names(config)) {
                 )  # same function used in SelectIntegrationFeatures
 
 
+            # ----------------------------------------------------------------------
+            # Collect result
+
             expr_mtxs[[sample_name]] <- tmp_seurat_obj
+
         },
 
         # pass
