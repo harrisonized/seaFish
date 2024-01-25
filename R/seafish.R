@@ -119,7 +119,9 @@ for (group_name in names(config)) {
             # ----------------------------------------------------------------------
             # Quality Control Filters
 
-            tmp_seurat_obj[["percent.mt"]] <- PercentageFeatureSet(tmp_seurat_obj, pattern = "^MT-")
+            tmp_seurat_obj[["percent.mt"]] <- PercentageFeatureSet(
+                tmp_seurat_obj, pattern = "^mt-"
+            )
 
             # QC plot
             VlnPlot(tmp_seurat_obj,
@@ -165,8 +167,8 @@ for (group_name in names(config)) {
                 tmp_seurat_obj,
                 subset = (
                     (nCount_RNA > 1000) & (nCount_RNA <= upper_rna_count) &
-                    (nFeature_RNA > 1000) & (nFeature_RNA <= upper_rna_feature)
-                    # (percent.mt <= upper_pct_mt)
+                    (nFeature_RNA > 1000) & (nFeature_RNA <= upper_rna_feature) &
+                    (percent.mt <= upper_pct_mt)
                 )
             )
 
