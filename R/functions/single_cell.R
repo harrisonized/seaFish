@@ -59,3 +59,46 @@ run_standard_analysis_workflow <- function(seurat_obj, ndim=40) {
     seurat_obj <- RunUMAP(seurat_obj, reduction = "pca", dims = 1:ndim)
     return(seurat_obj)
 }
+
+
+#' Counts From Seurat
+#' 
+#' @description
+#' Retrieve the counts data from a Seurat object
+#' Returns genes as columns and cell barcodes as rows
+#' 
+#' @param seurat_obj Seurat V4 object
+#' @param genes list of genes, unused genes will be filtered
+#' @param nrows set a limit if just eda
+#' 
+#' 
+counts_from_seurat <- function(
+    seurat_obj,
+    genes=c(),
+    barcodes=c(),
+    nrows=NA,
+    normalized=FALSE  # if this is true, then this returns the same data as SeuratObject::FetchData
+){
+    # genes
+    if (length(genes)==0) {
+        genes <- 1:nrow(seurat_obj)
+    }
+
+    # barcodes
+    if (length(barcodes)==0) {
+        if (is.na(nrows)) {
+            num_cells <- ncol(seurat_obj)
+            barcodes <- 1:num_cells
+        } else {
+            barcodes <- 1:nrows
+        }
+    }
+    if (normalized==TRUE) {
+        df <- data.frame(t(seurat_obj[genes, barcodes][['RNA']]@data))
+    } else{
+        df <- data.frame(t(seurat_obj[genes, barcodes][['RNA']]@counts))
+    }
+    
+    return(df)
+}
+

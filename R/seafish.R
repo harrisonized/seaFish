@@ -1,6 +1,6 @@
 ## Code used to analyze scRNAseq data
 ## Integrates the datasets based on the information in config.json
-## Based on: https://satijalab.org/seurat/articles/integration_introduction.html
+## Based on: https://satijalab.org/seurat/archive/v4.3/integration_introduction
 
 wd = dirname(this.path::here())  # wd = '~/github/R/seaFish'
 suppressPackageStartupMessages(library('Seurat'))
@@ -43,6 +43,10 @@ option_list = list(
     make_option(c("-j", "--config"), default='config.json',
                 metavar='config.json', type="character",
                 help="json file containing group information"),
+    
+    make_option(c("-d", "--ndim"), default=30,
+                metavar="30", type="integer",
+                help="choose the number of dimensions for the data integration"),
 
     make_option(c("-c", "--celldex"),
                 default='ImmGen', metavar='ImmGen', type="character",
@@ -51,7 +55,6 @@ option_list = list(
     make_option(c("-e", "--ensembl"),  default=FALSE,
                 metavar="FALSE", action="store_true", type="logical",
                 help="When querying celldex"),
-
     make_option(c("-g", "--gene-of-interest"), default="Dnase1l1",
                 metavar="Dnase1l1", type="character",
                 help="choose a gene"),
@@ -66,6 +69,7 @@ troubleshooting <- opt[['troubleshooting']]
 figures_dir <- multiple_replacement(
     opt[['input-dir']], c('data'='figures', 'input'='output')
 )
+ndim=opt[['ndim']]
 
 # Start Log
 start_time <- Sys.time()
@@ -97,18 +101,85 @@ for (group_name in names(config)) {
 
         tryCatch({
 
-            expr_mtx <- read_10x(file.path(wd, opt[['input-dir']], sample_name))
-            tmp_seurat_obj <- CreateSeuratObject(counts = expr_mtx, min.cells = 3) %>% 
-                NormalizeData(verbose = FALSE) %>% 
-                FindVariableFeatures(verbose = FALSE)
-            tmp_seurat_obj$sample_name <- sample_name
+            # ----------------------------------------------------------------------
+            # Preprocessing
 
-            # filter
-            tmp_seurat_obj <- subset(tmp_seurat_obj, subset = (
-                (nCount_RNA < 20000) & (nCount_RNA > 1000) & (nFeature_RNA > 1000))
-            ) 
-            
-            # seurat_obj <- run_standard_analysis_workflow(seurat_obj, ndim=40)  # cluster
+            # See: https://satijalab.org/seurat/articles/pbmc3k_tutorial.html
+            # According to this tutorial, the steps are run in this order:
+            # 1. Create QC violin plot
+            # 2. Filter first
+            # 3. Normalize after filtering
+
+            expr_mtx <- read_10x(file.path(wd, opt[['input-dir']], sample_name))
+
+            tmp_seurat_obj <- CreateSeuratObject(counts = expr_mtx, min.cells = 3)
+            tmp_seurat_obj$sample_name <- sample_name  # consider using orig.ident
+
+
+            # ----------------------------------------------------------------------
+            # Quality Control Filters
+
+            tmp_seurat_obj[["percent.mt"]] <- PercentageFeatureSet(tmp_seurat_obj, pattern = "^MT-")
+
+            # QC plot
+            VlnPlot(tmp_seurat_obj,
+                   c("nCount_RNA", "nFeature_RNA", "percent.mt"),
+                   ncol = 3, pt.size = 0.1)
+            if (!troubleshooting) {
+                if (!dir.exists(file.path(wd, figures_dir, sample_name, 'qc'))) {
+                    dir.create(file.path(wd, figures_dir, sample_name, 'qc'), recursive=TRUE)
+                }
+                ggsave(
+                    file.path(wd, figures_dir, sample_name, 'qc',
+                              paste0('violin-', sample_name, '-qc.png')),
+                    height=800, width=1200, dpi=300, units="px", scaling=0.5
+                )
+            }
+
+            # QC plot 2
+            ggplot(tmp_seurat_obj@meta.data,
+                   aes(.data[['nCount_RNA']], .data[['nFeature_RNA']])) +
+                   geom_point(alpha = 0.7, size = 0.5) +
+                   labs(x = "Counts Per Cell", y = "Genes Per Cell")
+            if (!troubleshooting) {
+                ggsave(file.path(wd, figures_dir, sample_name, 'qc',
+                           paste0('scatter-', sample_name, '-num_genes_vs_counts.png')),
+                       height=800, width=1200, dpi=300, units="px", scaling=0.5)
+            }
+
+            ## TODO:
+            ## 1. DropletUtils::barcodeRanks(tmp_seurat_obj)
+            ## 2. filter below knee point
+            ## see: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8848315/
+
+            #' Filters
+            #' See: https://www.10xgenomics.com/analysis-guides/common-considerations-for-quality-control-filters-for-single-cell-rna-seq-data
+            #' Lower bound to filter low quality cells
+            #' Upper bound to filter potential doublets (use median+3*stdev)
+            upper_rna_count <- median(tmp_seurat_obj$nCount_RNA) + 3*sd(tmp_seurat_obj$nCount_RNA)
+            upper_rna_feature <- median(tmp_seurat_obj$nFeature_RNA) + 3*sd(tmp_seurat_obj$nFeature_RNA)
+            upper_pct_mt <- median(tmp_seurat_obj$percent.mt) + 3*sd(tmp_seurat_obj$percent.mt)
+
+            # Filter
+            tmp_seurat_obj <- subset(
+                tmp_seurat_obj,
+                subset = (
+                    (nCount_RNA > 1000) & (nCount_RNA <= upper_rna_count) &
+                    (nFeature_RNA > 1000) & (nFeature_RNA <= upper_rna_feature)
+                    # (percent.mt <= upper_pct_mt)
+                )
+            )
+
+            # Normalize after filtering
+            tmp_seurat_obj <- tmp_seurat_obj %>%
+                NormalizeData(verbose = FALSE) %>% 
+                FindVariableFeatures(
+                    verbose = FALSE,
+                    selection.method = "vst",
+                    nfeatures = 2000
+                )  # same function used in SelectIntegrationFeatures
+
+
             expr_mtxs[[sample_name]] <- tmp_seurat_obj
         },
 
@@ -124,17 +195,33 @@ for (group_name in names(config)) {
 
 
     # ----------------------------------------------------------------------
-    # Integrate and Label Clusters
+    # Integrate Data
 
     log_print(paste(Sys.time(), 'Integrating data...'))
 
-    integration_features <- SelectIntegrationFeatures(object.list = expr_mtxs)
-    integration_anchors <- FindIntegrationAnchors(
+    features <- c(SelectIntegrationFeatures(
         object.list = expr_mtxs,
-        anchor.features = integration_features
+        nfeatures = 2000  # these are applied onto the "integrated" assay
+    ))  # add any genes here, including the gene-of-interest does not really make a difference
+    anchors <- FindIntegrationAnchors(
+        object.list = expr_mtxs,
+        anchor.features = features
     )
-    seurat_obj <- IntegrateData(anchorset = integration_anchors)
-    seurat_obj <- run_standard_analysis_workflow(seurat_obj, ndim=30)  # UMAP
+    seurat_obj <- IntegrateData(anchorset = anchors)
+
+
+    # ----------------------------------------------------------------------
+    # Cluster assignment
+
+    DefaultAssay(seurat_obj) <- "integrated"
+    
+    # Run the standard workflow for visualization and clustering
+    seurat_obj <- ScaleData(seurat_obj, verbose = FALSE)
+    seurat_obj <- RunPCA(seurat_obj, npcs = ndim, verbose = FALSE)  # required for RunUMAP to work
+    seurat_obj <- RunUMAP(seurat_obj, reduction = "pca", dims = 1:ndim)
+    seurat_obj <- FindNeighbors(seurat_obj, reduction = "pca", dims = 1:ndim)
+    seurat_obj <- FindClusters(seurat_obj, resolution = 0.5)
+
 
     log_print(paste(Sys.time(), 'Labeling clusters...'))
 
@@ -147,6 +234,10 @@ for (group_name in names(config)) {
     )
     seurat_obj$cell_type <- predictions[['labels']]
 
+    # switch back after cluster assignment
+    DefaultAssay(seurat_obj) <- "RNA"
+    Idents(seurat_obj) <- seurat_obj@meta.data$sample_name
+
     # save
     if (!troubleshooting) {
         if (!dir.exists(file.path(wd, opt[['output-dir']], 'integrated'))) {
@@ -157,16 +248,15 @@ for (group_name in names(config)) {
                             paste0(group_name,'.RData')) )
     }
 
-
     # ----------------------------------------------------------------------
-    # Plot Overview
+    # Visualization
 
     log_print(paste(Sys.time(), 'Plotting...'))
 
     # Plot unlabeled clusters
     DimPlot(seurat_obj,
             reduction = "umap",
-            split.by = "orig.ident",
+            split.by = "sample_name",
             label = TRUE) +
         theme(strip.text.x = element_blank(), plot.title = element_text(hjust = 0.5)) +
         ggtitle("Unlabeled Clusters")

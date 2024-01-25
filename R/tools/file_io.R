@@ -45,9 +45,9 @@ load_rdata <- function(filepath){
 }
 
 
-#' Alternative to  that enables you to specify the filenames
+#' Read 10X
 #'
-#' @description Mainly used to simplify scripts
+#' @description Alternative to [Seurat::Read10X()] that enables you to specify the filenames
 #' 
 #' @references
 #'\href{https://github.com/satijalab/seurat/issues/4096}{Github issue}

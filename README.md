@@ -1,8 +1,6 @@
 ## seaFish
 
-With high "efficiency," we use this pipeline to search for "a fish in the sea." The purpose of this repository is to enable me to efficiently perform exploratory data analysis on publicly available scRNAseq datasets. This can serve as a valuable hypothesis generator to check our intuition before we invest time and resources into experimentation.
-
-This repository is currently undergoing major refactoring to allow it to handle multiple datasets.
+With high "efficiency," we use this pipeline to search for "a fish in the sea." The purpose of this repository is to enable me to efficiently perform exploratory data analysis on publicly available scRNAseq datasets. This can serve as a valuable hypothesis generator to check our intuition before we invest time and resources into experimentation. This package uses Seurat v4, because Seurat v5 is still fairly new as of January 2024.
 
 ## Installation
 
@@ -16,6 +14,12 @@ BiocManager::install('Seurat')
 BiocManager::install('SingleR')
 BiocManager::install('celldex')
 BiocManager::install('DropletUtils')
+
+# SeuratData
+devtools::install_github('satijalab/seurat-data@d6a8ce6')
+library('SeuratData')
+SeuratData::options(timeout = 240)
+SeuratData::InstallData("ifnb")
 ```
 
 ## Scripts
