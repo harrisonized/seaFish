@@ -469,12 +469,13 @@ for (group_name in names(config)) {
                    slot = 'data')
     ) <- 'pos'
     
+    # takes ~1 min
     markers <- FindMarkers(
         seurat_obj,
         ident.1 = 'pos',
         test.use = "wilcox",
-        logfc.threshold = 0,
-        min.pct = 0.01
+        logfc.threshold = 0.01,
+        min.pct = 0.25
     )
     markers['gene'] <- rownames(markers)
 
@@ -485,8 +486,8 @@ for (group_name in names(config)) {
         geom_hline(yintercept = -log10(0.01), linetype="longdash", colour="grey", linewidth=1) +
         geom_vline(xintercept = 1, linetype="longdash", colour="#BE684D", size=1) +
         geom_vline(xintercept = -1, linetype="longdash", colour="#2C467A", size=1) +
-        annotate("rect", xmin = 1, xmax = 12, ymin = -log10(0.01), ymax = 7.5, alpha=.2, fill="#BE684D") +
-        annotate("rect", xmin = -1, xmax = -12, ymin = -log10(0.01), ymax = 7.5, alpha=.2, fill="#2C467A") +
+        annotate("rect", xmin = 1, xmax = 2, ymin = -log10(0.01), ymax = 7.5, alpha=.2, fill="#BE684D") +
+        annotate("rect", xmin = -1, xmax = -2, ymin = -log10(0.01), ymax = 7.5, alpha=.2, fill="#2C467A") +
         labs(title="Volcano plot") +
         theme_bw()
     ggplotly(fig)
