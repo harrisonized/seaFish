@@ -5,6 +5,7 @@
 wd = dirname(this.path::here())  # wd = '~/github/R/seaFish'
 suppressPackageStartupMessages(library('Seurat'))
 library("ggplot2")
+library('plotly')
 library('rjson')
 library('optparse')
 library('logr')
@@ -188,7 +189,6 @@ for (group_name in names(config)) {
                 ylab="number of cells",
                 main="Cells per genes ( >= 2 )"
             )
-
 
 
 
@@ -394,7 +394,6 @@ for (group_name in names(config)) {
     Idents(seurat_obj) <- seurat_obj$cell_type
 
     # see: https://satijalab.org/seurat/articles/pbmc3k_tutorial#finding-differentially-expressed-features-cluster-biomarkers
-    # takes a while
     markers <- FindAllMarkers(
         seurat_obj,
         test.use = "wilcox",
@@ -422,7 +421,7 @@ for (group_name in names(config)) {
 
 
     # ----------------------------------------------------------------------
-    # Gene of Interest
+    # Gene of Interest Expression
 
     gene = opt[['gene-of-interest']]
     
@@ -453,6 +452,45 @@ for (group_name in names(config)) {
                    paste0('violin-integrated-', group_name, '-', tolower(gene), '.png')),
                height=800, width=1200, dpi=300, units="px", scaling=0.5)
     }
+
+
+    # TODO: bar chart of percent of each cell type with Dnase1l1 expression
+
+
+    # ----------------------------------------------------------------------
+    # Gene of Interest Correlations
+    # TODO: check if this is correct
+
+    # Volcano plot
+    # See: https://github.com/satijalab/seurat/issues/4118
+    Idents(seurat_obj, 
+        WhichCells(object = seurat_obj,
+                   expression = Dnase1l1 > 0,
+                   slot = 'data')
+    ) <- 'pos'
+    
+    markers <- FindMarkers(
+        seurat_obj,
+        ident.1 = 'pos',
+        test.use = "wilcox",
+        logfc.threshold = 0,
+        min.pct = 0.01
+    )
+    markers['gene'] <- rownames(markers)
+
+    # plot
+    fig <- ggplot(markers) +
+        aes(y=-log10(p_val_adj), x=avg_log2FC, text = paste("Symbol:", gene)) +
+        geom_point(size=0.5) +
+        geom_hline(yintercept = -log10(0.01), linetype="longdash", colour="grey", linewidth=1) +
+        geom_vline(xintercept = 1, linetype="longdash", colour="#BE684D", size=1) +
+        geom_vline(xintercept = -1, linetype="longdash", colour="#2C467A", size=1) +
+        annotate("rect", xmin = 1, xmax = 12, ymin = -log10(0.01), ymax = 7.5, alpha=.2, fill="#BE684D") +
+        annotate("rect", xmin = -1, xmax = -12, ymin = -log10(0.01), ymax = 7.5, alpha=.2, fill="#2C467A") +
+        labs(title="Volcano plot") +
+        theme_bw()
+    ggplotly(fig)
+
 
     log_print(paste("Loop completed in:", difftime(Sys.time(), loop_start_time)))
 }
