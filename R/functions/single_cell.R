@@ -6,13 +6,14 @@ import::here(celldex,
 import::here(Seurat,
     'ScaleData', 'RunPCA', 'RunUMAP', 'FindNeighbors', 'FindClusters'
 )
-# import::here(SingleR, 'SingleR')
+
 
 ## Objects
 ## celldex_switch
 
 ## Functions
 ## run_standard_analysis_workflow
+## counts_from_seurat
 
 
 #' Celldex Switch

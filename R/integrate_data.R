@@ -1,26 +1,38 @@
 ## Code used to analyze scRNAseq data
 ## Integrates the datasets based on the information in config.json
-## Based on: https://satijalab.org/seurat/archive/v4.3/integration_introduction
+
+## This script reads in the datasets individually
+## During the preprocessesing step, filter first, ten normalize
+## For the filters, thresholds are adjusted automatically
+## Lower bound: low quality cells
+## Upper bound: potential doublets
+
+## References:
+## https://satijalab.org/seurat/archive/v4.3/integration_introduction
+## https://satijalab.org/seurat/articles/pbmc3k_tutorial.html
+## https://www.10xgenomics.com/analysis-guides/common-considerations-for-quality-control-filters-for-single-cell-rna-seq-data
+
 
 wd = dirname(this.path::here())  # wd = '~/github/R/seaFish'
 suppressPackageStartupMessages(library('Seurat'))
+suppressPackageStartupMessages(library('plotly'))
 library("ggplot2")
-library('plotly')
 library('rjson')
 library('optparse')
 library('logr')
 import::from(magrittr, '%>%')
 import::from(dplyr, 'group_by', 'top_n', 'ungroup', 'slice_head')
 import::from(scales, 'trans_breaks', 'trans_format', 'math_format')
-import::from(grid, 'grid.newpage', 'grid.draw')
 import::from(DropletUtils, 'barcodeRanks')
 import::from(SingleR, 'SingleR', 'plotScoreHeatmap')
 import::from(file.path(wd, 'R', 'tools', 'file_io.R'),
     'read_10x', .character_only=TRUE)
 import::from(file.path(wd, 'R', 'tools', 'list_tools.R'),
     'multiple_replacement', .character_only=TRUE)
+import::from(file.path(wd, 'R', 'tools', 'plotting.R'),
+    'savefig', .character_only=TRUE)
 import::from(file.path(wd, 'R', 'functions', 'single_cell.R'),
-    'celldex_switch', 'run_standard_analysis_workflow', .character_only=TRUE)
+    'celldex_switch', .character_only=TRUE)
 
 
 # ----------------------------------------------------------------------
@@ -56,10 +68,6 @@ option_list = list(
                 metavar="FALSE", action="store_true", type="logical",
                 help="When querying celldex"),
 
-    make_option(c("-g", "--gene-of-interest"), default="Dnase1l1",
-                metavar="Dnase1l1", type="character",
-                help="choose a gene"),
-
     make_option(c("-t", "--troubleshooting"), default=FALSE, action="store_true",
                 metavar="FALSE", type="logical",
                 help="enable if troubleshooting to prevent overwriting your files")
@@ -74,9 +82,75 @@ ndim=opt[['ndim']]
 
 # Start Log
 start_time <- Sys.time()
-log <- log_open(paste0("cluster_groups-",
+log <- log_open(paste0("integrate_data-",
                        strftime(start_time, format="%Y%m%d_%H%M%S"), '.log'))
 log_print(paste('Script started at:', start_time))
+
+
+# ----------------------------------------------------------------------
+# Subroutines
+
+#' Draw QC plots
+#' 
+#' @description
+#' 
+draw_qc_plots <- function(
+    seurat_obj,
+    dirpath,
+    sample_name = 'sample',
+    troubleshooting=FALSE
+) {
+    # Figure 1. Standard QC Metrics
+    VlnPlot(seurat_obj,
+           c("nCount_RNA", "nFeature_RNA", "percent.mt"),
+           ncol = 3, pt.size = 0.1)
+    savefig(file.path(dirpath, paste0('violin-', sample_name, '-qc.png')),
+            makedir=TRUE, troubleshooting=troubleshooting)
+
+    # Figure 2. Genes per cell vs. Counts per cell
+    ggplot(seurat_obj@meta.data,
+           aes(.data[['nCount_RNA']], .data[['nFeature_RNA']])) +
+           geom_point(alpha = 0.7, size = 0.5) +
+           labs(x = "Counts Per Cell", y = "Genes Per Cell")
+    savefig(file.path(dirpath, paste0('violin-', sample_name, '-num_genes_vs_counts.png')),
+            troubleshooting=troubleshooting)
+
+    # Figure 3. Waterfall plot
+    # See: https://sydneybiox.github.io/SingleCellPlus/qc.html#3_qc1:_waterfall_plot
+
+    barcode = barcodeRanks(seurat_obj)
+    barcode_data = as.data.frame(barcode)
+    knee <- barcode@metadata$knee
+    inflection <- barcode@metadata$inflection
+    barcode_points = data.frame(
+        type = c("inflection", "knee"),
+        value = c(barcode@metadata$inflection, barcode@metadata$knee)
+    )
+
+    ggplot(data = barcode_data, aes(x = rank, y = total)) +
+        geom_point() +
+        geom_hline(data = barcode_points,
+                   aes(yintercept = value,
+                       colour = type), linetype = 2) +
+        scale_x_log10(breaks = trans_breaks("log10", function(x) 10^x),
+                      labels = trans_format("log10", math_format(10^.x))) +
+        scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
+                      labels = trans_format("log10", math_format(10^.x))) +
+        labs(title = "Waterfall plot of read counts",
+             x = "Log Rank",
+             y = "Log Counts")
+    savefig(file.path(dirpath, paste0('waterfall-', sample_name, '-log_count-log_rank.png')),
+            troubleshooting=troubleshooting)
+
+    # Figure 4. Number of cells per gene
+    # See: https://ucdavis-bioinformatics-training.github.io/2017_2018-single-cell-RNA-sequencing-Workshop-UCD_UCB_UCSF/day2/scRNA_Workshop-PART2.html
+    plot(
+        sort(rowSums(seurat_obj[['RNA']]@counts>=2)),
+        xlab="gene rank",
+        ylab="number of cells",
+        main="Cells per genes ( >= 2 )"
+    )
+}
 
 
 # ----------------------------------------------------------------------
@@ -105,140 +179,54 @@ for (group_name in names(config)) {
             # ----------------------------------------------------------------------
             # Preprocessing
 
-            # See: https://satijalab.org/seurat/articles/pbmc3k_tutorial.html
-            # According to this tutorial, the steps are run in this order:
-            # 1. Create QC violin plot
-            # 2. Filter first
-            # 3. Normalize after filtering
-
             expr_mtx <- read_10x(file.path(wd, opt[['input-dir']], sample_name))
-
             tmp_seurat_obj <- CreateSeuratObject(counts = expr_mtx, min.cells = 3)
             tmp_seurat_obj$sample_name <- sample_name  # consider using orig.ident
             tmp_seurat_obj[["percent.mt"]] <- PercentageFeatureSet(
                 tmp_seurat_obj, pattern = "^mt-"
             )
 
-            # ----------------------------------------------------------------------
-            # QC Plots on Unfiltered Data
-
-            # Figure 1. Standard QC Metrics
-            VlnPlot(tmp_seurat_obj,
-                   c("nCount_RNA", "nFeature_RNA", "percent.mt"),
-                   ncol = 3, pt.size = 0.1)
-            if (!troubleshooting) {
-                if (!dir.exists(file.path(wd, figures_dir, sample_name, 'qc'))) {
-                    dir.create(file.path(wd, figures_dir, sample_name, 'qc'), recursive=TRUE)
-                }
-                ggsave(
-                    file.path(wd, figures_dir, sample_name, 'qc',
-                              paste0('violin-', sample_name, '-qc.png')),
-                    height=800, width=1200, dpi=300, units="px", scaling=0.5
-                )
-            }
-
-            # Figure 2. Genes per cell vs. Counts per cell
-            ggplot(tmp_seurat_obj@meta.data,
-                   aes(.data[['nCount_RNA']], .data[['nFeature_RNA']])) +
-                   geom_point(alpha = 0.7, size = 0.5) +
-                   labs(x = "Counts Per Cell", y = "Genes Per Cell")
-            if (!troubleshooting) {
-                ggsave(file.path(wd, figures_dir, sample_name, 'qc',
-                           paste0('scatter-', sample_name, '-num_genes_vs_counts.png')),
-                       height=800, width=1200, dpi=300, units="px", scaling=0.5)
-            }
-
-            # Figure 3. Waterfall plot
-            # See: https://sydneybiox.github.io/SingleCellPlus/qc.html#3_qc1:_waterfall_plot
-            
-            # Filter below knee point
-            barcode = barcodeRanks(tmp_seurat_obj)
-            barcode_data = as.data.frame(barcode)
-            knee <- barcode@metadata$knee
-            inflection <- barcode@metadata$inflection
-
-            barcode_points = data.frame(
-                type = c("inflection", "knee"),
-                value = c(barcode@metadata$inflection, barcode@metadata$knee)
+            draw_qc_plots(
+                tmp_seurat_obj,
+                dirpath=file.path(wd, figures_dir, sample_name, 'qc'),
+                sample_name=sample_name,
+                troubleshooting=troubleshooting
             )
 
-            ggplot(data = barcode_data, aes(x = rank, y = total)) +
-                geom_point() +
-                geom_hline(data = barcode_points,
-                           aes(yintercept = value,
-                               colour = type), linetype = 2) +
-                scale_x_log10(breaks = trans_breaks("log10", function(x) 10^x),
-                              labels = trans_format("log10", math_format(10^.x))) +
-                scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
-                              labels = trans_format("log10", math_format(10^.x))) +
-                labs(title = "Waterfall plot of read counts",
-                     x = "Log Rank",
-                     y = "Log Counts")
-
-            if (!troubleshooting) {
-                ggsave(file.path(wd, figures_dir, sample_name, 'qc',
-                           paste0('waterfall-', sample_name, '-log_count-log_rank.png')),
-                       height=800, width=1200, dpi=300, units="px", scaling=0.5)
-            }
-
-            # Figure 4. Number of cells per gene
-            # See: https://ucdavis-bioinformatics-training.github.io/2017_2018-single-cell-RNA-sequencing-Workshop-UCD_UCB_UCSF/day2/scRNA_Workshop-PART2.html
-            plot(
-                sort(rowSums(tmp_seurat_obj[['RNA']]@counts>=2)),
-                xlab="gene rank",
-                ylab="number of cells",
-                main="Cells per genes ( >= 2 )"
-            )
-
-
-
             # ----------------------------------------------------------------------
-            # Filter and Normalize
+            # Filter
 
-            # Standard filters
-            # See: https://www.10xgenomics.com/analysis-guides/common-considerations-for-quality-control-filters-for-single-cell-rna-seq-data
-            # Lower bound: filter low quality cells
-            # Upper bound: filter potential doublets
             upper_rna_count <- median(tmp_seurat_obj$nCount_RNA) + 3*sd(tmp_seurat_obj$nCount_RNA)
             upper_rna_feature <- median(tmp_seurat_obj$nFeature_RNA) + 3*sd(tmp_seurat_obj$nFeature_RNA)
             upper_pct_mt <- median(tmp_seurat_obj$percent.mt) + 3*sd(tmp_seurat_obj$percent.mt)
-
-            # Filter
-            tmp_seurat_obj <- subset(
-                tmp_seurat_obj,
-                subset = (
-                    (nCount_RNA > 1000) & (nCount_RNA <= upper_rna_count) &
-                    (nFeature_RNA > 300) & (nFeature_RNA <= upper_rna_feature) &
-                    (percent.mt <= upper_pct_mt)
-                )
+            
+            tmp_seurat_obj <- subset(tmp_seurat_obj,
+                subset = ((nCount_RNA > 1000) & (nCount_RNA <= upper_rna_count) &
+                          (nFeature_RNA > 300) & (nFeature_RNA <= upper_rna_feature) &
+                          (percent.mt <= upper_pct_mt))
             )
 
             # Filter genes expressed by less than 3 cells
             # See: https://matthieuxmoreau.github.io/EarlyPallialNeurogenesis/html-Reports/Quality_Control.html
-            
             num_cells_per_gene <- rowSums(tmp_seurat_obj[['RNA']]@counts > 0)
             genes_to_keep <- names(num_cells_per_gene[num_cells_per_gene >= 3])
             tmp_seurat_obj <- tmp_seurat_obj[genes_to_keep, ]
 
             # Filter barcodes below knee point
-            # See: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8848315/
-            # This does not do a good job when all the cells are high quality
-            # barcodes_to_keep <- rownames(
-            #     barcode_data[(barcode_data['total'] >= knee), ]
-            # )
+            # Note: Disabled due to the high amount of false negatives
+            # barcodes_to_keep <- rownames(barcode_data[(barcode_data['total'] >= knee), ])
             # tmp_seurat_obj <- tmp_seurat_obj[, barcodes_to_keep]
 
-            # Normalize after filtering
+
+            # ----------------------------------------------------------------------
+            # Normalize
+
             tmp_seurat_obj <- tmp_seurat_obj %>%
                 NormalizeData(verbose = FALSE) %>%
                 FindVariableFeatures(
-                    verbose = FALSE,
-                    selection.method = "vst",
+                    verbose = FALSE, selection.method = "vst",
                     nfeatures = 2000
                 )
-
-            # ----------------------------------------------------------------------
-            # Collect result
 
             expr_mtxs[[sample_name]] <- tmp_seurat_obj
 
@@ -260,50 +248,25 @@ for (group_name in names(config)) {
 
     log_print(paste(Sys.time(), 'Integrating data...'))
 
-    features <- c(SelectIntegrationFeatures(
-        object.list = expr_mtxs,
-        nfeatures = 2000 
-    ))  # note: adding one gene here does not really make a difference
-    anchors <- FindIntegrationAnchors(
-        object.list = expr_mtxs,
-        anchor.features = features
-    )
+    features_list <- SelectIntegrationFeatures(object.list = expr_mtxs, nfeatures = 2000)
+    anchors <- FindIntegrationAnchors(object.list = expr_mtxs, anchor.features = features_list)
     seurat_obj <- IntegrateData(anchorset = anchors)
     DefaultAssay(seurat_obj) <- "integrated"
 
-
-    # ----------------------------------------------------------------------
-    # Run the standard workflow for visualization and clustering
-
+    # Run the standard workflow
     seurat_obj <- ScaleData(seurat_obj, verbose = FALSE)
-    seurat_obj <- RunPCA(seurat_obj, npcs = ndim, verbose = FALSE)  # required for RunUMAP to work
+    seurat_obj <- RunPCA(seurat_obj, npcs = ndim, verbose = FALSE)  # required for RunUMAP
     seurat_obj <- RunUMAP(seurat_obj, reduction = "pca", dims = 1:ndim)
     seurat_obj <- FindNeighbors(seurat_obj, reduction = "pca", dims = 1:ndim)
     seurat_obj <- FindClusters(seurat_obj, resolution = 0.5)
-
-    DefaultAssay(seurat_obj) <- "RNA"
-
-    # Plot unlabeled clusters
-    DimPlot(seurat_obj,
-            reduction = "umap",
-            group.by = "sample_name",
-            # split.by = "sample_name",
-            label = TRUE) +
-        theme(strip.text.x = element_blank(), plot.title = element_text(hjust = 0.5)) +
-        ggtitle("Unlabeled Clusters")
-    if (!troubleshooting) {
-        if (!dir.exists(file.path(wd, figures_dir, 'integrated', group_name))) {
-            dir.create(file.path(wd, figures_dir, 'integrated', group_name), recursive=TRUE)
-        }
-        ggsave(file.path(wd, figures_dir, 'integrated', group_name,
-                         paste0('umap-integrated-', group_name, '-', 'unlabeled.png')),
-               height=800, width=1000, dpi=300, units="px", scaling=0.5)
-    }
+    
 
     # ----------------------------------------------------------------------
     # Label Clusters
     
     log_print(paste(Sys.time(), 'Labeling clusters...'))
+
+    DefaultAssay(seurat_obj) <- "RNA"
 
     ref_data <- celldex_switch[[opt$celldex]](ensembl=opt[['ensembl']])
     predictions <- SingleR(
@@ -314,15 +277,29 @@ for (group_name in names(config)) {
     )
     seurat_obj$cell_type <- predictions[['labels']]
 
-    # save
+    # save object
     if (!troubleshooting) {
         if (!dir.exists(file.path(wd, opt[['output-dir']], 'integrated'))) {
-            dir.create(file.path(wd, opt[['output-dir']], 'integrated'), recursive=TRUE)
-        }
+            dir.create(file.path(wd, opt[['output-dir']], 'integrated'), recursive=TRUE)}
         save(seurat_obj,
-             file=file.path(wd, opt[['output-dir']], 'integrated',
-                            paste0(group_name,'.RData')) )
+             file=file.path(wd, opt[['output-dir']], 'integrated', paste0(group_name,'.RData')) )
     }
+
+
+    # ----------------------------------------------------------------------
+    # Plot
+
+    # Plot unlabeled clusters
+    DimPlot(seurat_obj,
+            reduction = "umap",
+            group.by = "sample_name",
+            # split.by = "sample_name",
+            label = TRUE) +
+        theme(strip.text.x = element_blank(), plot.title = element_text(hjust = 0.5)) +
+        ggtitle("Unlabeled Clusters")
+    savefig(file.path(wd, figures_dir, 'integrated', group_name,
+                      paste0('umap-integrated-', group_name, '-', 'unlabeled.png')),
+            width=1000, makedir=TRUE, troubleshooting=troubleshooting)
 
     # Plot CellDex labeled clusters
     DimPlot(seurat_obj,
@@ -331,23 +308,16 @@ for (group_name in names(config)) {
             # split.by = "sample_name",  # facet if necessary
             label = TRUE
         ) + ggtitle(group_name)
-    if (!troubleshooting) {
-        ggsave(file.path(wd, figures_dir, 'integrated', group_name,
-                         paste0('umap-integrated-', group_name, '-', tolower(opt[['celldex']]), '_labeled.png')),
-               height=800, width=1000, dpi=300, units="px", scaling=0.5)
-    }
+    savefig(file.path(wd, figures_dir, 'integrated', group_name,
+                      paste0('umap-integrated-', group_name, '-', tolower(opt[['celldex']]), '_labeled.png')),
+            width=1000, troubleshooting=troubleshooting)
 
     # Plot CellDex QC Heatmap
     fig <- plotScoreHeatmap(predictions)
-    if (!troubleshooting) {
-        png(file.path(wd, figures_dir, 'integrated', group_name,
+    savefig(file.path(wd, figures_dir, 'integrated', group_name,
                       paste0('heatmap-', group_name, '-', 'predictions.png')),
-            width=2400, height=1600, res=360, units='px'
-        )
-        grid::grid.newpage()
-        grid::grid.draw(fig$gtable)
-        dev.off()
-    }
+            fig=fig, height=1600, width=2400, dpi=300, troubleshooting=troubleshooting)
+
 
     # ----------------------------------------------------------------------
     # Remove rare populations
@@ -356,7 +326,10 @@ for (group_name in names(config)) {
     num_cells_per_label <- table(predictions['labels'])
     num_cells_per_label <- num_cells_per_label[sort.list(num_cells_per_label, decreasing=TRUE)]
     
-    # plot
+
+    # ----------------------------------------------------------------------
+    # Plot
+
     fig <- ggplot( data=data.frame(num_cells_per_label), aes(x=labels, y=Freq)) +
         geom_bar(stat="identity", fill="steelblue") +
         labs(title = "Number of Cells Per Label",
@@ -364,14 +337,10 @@ for (group_name in names(config)) {
                      y = "Number of Cells") +
         scale_x_discrete(guide = guide_axis(angle = 60)) +
         theme_minimal()
-    if (!troubleshooting) {
-        if (!dir.exists(file.path(wd, figures_dir, 'integrated', group_name))) {
-            dir.create(file.path(wd, figures_dir, 'integrated', group_name), recursive=TRUE)
-        }
-        ggsave(file.path(wd, figures_dir, 'integrated', group_name,
-                         paste0('bar-', group_name, '-', 'num_cells_per_label.png')),
-               height=800, width=1000, dpi=300, units="px", scaling=0.5)
-    }
+    savefig(file.path(wd, figures_dir, 'integrated', group_name,
+                      paste0('bar-', group_name, '-', 'num_cells_per_label.png')),
+            height=800, width=1000, troubleshooting=troubleshooting)
+
 
     pct_cells_per_label <- num_cells_per_label/sum(num_cells_per_label)
     populations_to_keep <- names(num_cells_per_label[(pct_cells_per_label > 0.03)])
@@ -384,11 +353,9 @@ for (group_name in names(config)) {
             split.by = "sample_name",  # facet if necessary
             label = TRUE
         ) + ggtitle(group_name)
-    if (!troubleshooting) {
-        ggsave(file.path(wd, figures_dir, 'integrated', group_name,
-                         paste0('umap-integrated-', group_name, '-', tolower(opt[['celldex']]), '_labeled-filtered.png')),
-               height=800, width=1000, dpi=300, units="px", scaling=0.5)
-    }
+    savefig(file.path(wd, figures_dir, 'integrated', group_name,
+                      paste0('umap-integrated-', group_name, '-', tolower(opt[['celldex']]), '_labeled-filtered.png')),
+            width=1000, troubleshooting=troubleshooting)
 
     # Genes and clusters Heatmap
     Idents(seurat_obj) <- seurat_obj$cell_type
@@ -407,90 +374,12 @@ for (group_name in names(config)) {
         slice_head(n = 12) %>%
         ungroup()
 
-    # see: https://github.com/satijalab/seurat/issues/2960
+    # See: https://github.com/satijalab/seurat/issues/2960
     seurat_obj <- ScaleData(seurat_obj, verbose = FALSE)
     DoHeatmap(seurat_obj, features = top_markers$gene)
-    if (!troubleshooting) {
-        if (!dir.exists(file.path(wd, figures_dir, 'integrated', group_name))) {
-            dir.create(file.path(wd, figures_dir, 'integrated', group_name), recursive=TRUE)
-        }
-        ggsave(file.path(wd, figures_dir, 'integrated', group_name,
+    savefig(file.path(wd, figures_dir, 'integrated', group_name,
                          paste0('heatmap-', group_name, '-', 'clusters.png')),
-               height=800, width=1000, dpi=300, units="px", scaling=0.5)
-    }
-
-
-    # ----------------------------------------------------------------------
-    # Gene of Interest Expression
-
-    gene = opt[['gene-of-interest']]
-    
-    # Plot UMAP
-    FeaturePlot(seurat_obj, 
-                reduction = "umap", 
-                features = gene,
-                pt.size = 0.4, 
-                order = TRUE,
-                # split.by = "sample_name",  # no need to facet
-                min.cutoff = 'q10',
-                label = FALSE) + ggtitle(paste(gene, 'in', group_name))
-    if (!troubleshooting) {
-        ggsave(file.path(wd, figures_dir, 'integrated', group_name,
-                   paste0('umap-integrated-', group_name, '-', tolower(gene), '.png')),
-               height=800, width=800, dpi=300, units="px", scaling=0.5)
-    }
-
-    # plot violin
-    # note: ridge looks poor if there are not many positive cells
-    VlnPlot(
-        seurat_obj,
-        features=gene,
-        group.by = "cell_type"
-    ) + ggtitle(paste(gene, 'in', group_name))
-    if (!troubleshooting) {
-        ggsave(file.path(wd, figures_dir, 'integrated', group_name,
-                   paste0('violin-integrated-', group_name, '-', tolower(gene), '.png')),
-               height=800, width=1200, dpi=300, units="px", scaling=0.5)
-    }
-
-
-    # TODO: bar chart of percent of each cell type with Dnase1l1 expression
-
-
-    # ----------------------------------------------------------------------
-    # Gene of Interest Correlations
-    # TODO: check if this is correct
-
-    # Volcano plot
-    # See: https://github.com/satijalab/seurat/issues/4118
-    Idents(seurat_obj, 
-        WhichCells(object = seurat_obj,
-                   expression = Dnase1l1 > 0,
-                   slot = 'data')
-    ) <- 'pos'
-    
-    # takes ~1 min
-    markers <- FindMarkers(
-        seurat_obj,
-        ident.1 = 'pos',
-        test.use = "wilcox",
-        logfc.threshold = 0.01,
-        min.pct = 0.25
-    )
-    markers['gene'] <- rownames(markers)
-
-    # plot
-    fig <- ggplot(markers) +
-        aes(y=-log10(p_val_adj), x=avg_log2FC, text = paste("Symbol:", gene)) +
-        geom_point(size=0.5) +
-        geom_hline(yintercept = -log10(0.01), linetype="longdash", colour="grey", linewidth=1) +
-        geom_vline(xintercept = 1, linetype="longdash", colour="#BE684D", size=1) +
-        geom_vline(xintercept = -1, linetype="longdash", colour="#2C467A", size=1) +
-        annotate("rect", xmin = 1, xmax = 2, ymin = -log10(0.01), ymax = 7.5, alpha=.2, fill="#BE684D") +
-        annotate("rect", xmin = -1, xmax = -2, ymin = -log10(0.01), ymax = 7.5, alpha=.2, fill="#2C467A") +
-        labs(title="Volcano plot") +
-        theme_bw()
-    ggplotly(fig)
+            width=1000, troubleshooting=troubleshooting)
 
 
     log_print(paste("Loop completed in:", difftime(Sys.time(), loop_start_time)))
