@@ -17,7 +17,7 @@ wd = dirname(this.path::here())  # wd = '~/github/R/seaFish'
 suppressPackageStartupMessages(library('Seurat'))
 library("ggplot2")
 library('rjson')
-library('zeallot')
+library('zeallot')  # %<-%
 library('optparse')
 library('logr')
 import::from(magrittr, '%>%')
@@ -107,7 +107,6 @@ for (group_name in names(config)) {
     # Read Data
     
     for (sample_name in sample_names) {
-
         log_print(paste(Sys.time(), 'Reading...', sample_name))
 
         tryCatch({
@@ -136,7 +135,7 @@ for (group_name in names(config)) {
             )
 
             # ----------------------------------------------------------------------
-            # Filter
+            # Filter and Normalize
 
             tmp_seurat_obj <- subset(tmp_seurat_obj,
                 subset = ((nCount_RNA > 1000) & (nCount_RNA <= upper_rna_count) &
@@ -150,15 +149,13 @@ for (group_name in names(config)) {
             genes_to_keep <- names(num_cells_per_gene[num_cells_per_gene >= 3])
             tmp_seurat_obj <- tmp_seurat_obj[genes_to_keep, ]
 
+
             # Filter barcodes below knee point
             # Note: Disabled due to the high amount of false negatives
             # barcodes_to_keep <- rownames(barcode_data[(barcode_data['total'] >= knee), ])
             # tmp_seurat_obj <- tmp_seurat_obj[, barcodes_to_keep]
 
-
-            # ----------------------------------------------------------------------
             # Normalize
-
             tmp_seurat_obj <- tmp_seurat_obj %>%
                 NormalizeData(verbose = FALSE) %>%
                 FindVariableFeatures(
@@ -167,7 +164,6 @@ for (group_name in names(config)) {
                 )
 
             expr_mtxs[[sample_name]] <- tmp_seurat_obj
-
         },
 
         # pass
@@ -223,14 +219,13 @@ for (group_name in names(config)) {
         ref=ref_data,
         labels=ref_data[['label.main']]
     )
-    seurat_obj$cell_type <- predictions[['labels']]
 
-    # save object
+    # export RData with predictions
+    seurat_obj$cell_type <- predictions[['labels']]
+    filepath=file.path(wd, opt[['output-dir']], 'integrated', paste0(group_name,'.RData'))
     if (!troubleshooting) {
-        if (!dir.exists(file.path(wd, opt[['output-dir']], 'integrated'))) {
-            dir.create(file.path(wd, opt[['output-dir']], 'integrated'), recursive=TRUE)}
-        save(seurat_obj,
-             file=file.path(wd, opt[['output-dir']], 'integrated', paste0(group_name,'.RData')) )
+        if ( !dir.exists(dirname(filepath)) ) { dir.create(dirname(filepath), recursive=TRUE) }
+        save(seurat_obj, file=filepath)
     }
 
     draw_predictions(
@@ -241,7 +236,6 @@ for (group_name in names(config)) {
         showfig=TRUE
     )
 
-    # Plot clustering result
     draw_clusters(
         seurat_obj,
         dirpath=file.path(wd, figures_dir, 'integrated', group_name),
@@ -252,17 +246,17 @@ for (group_name in names(config)) {
 
 
     # ----------------------------------------------------------------------
-    # Filter
+    # Subset for Cleaner Visualization
 
+    # Only keep significant populations
     num_cells_per_label <- table(predictions['labels'])  # value counts
     num_cells_per_label <- num_cells_per_label[sort.list(num_cells_per_label, decreasing=TRUE)]  # sort
     pct_cells_per_label <- num_cells_per_label/sum(num_cells_per_label)
     populations_to_keep <- names(num_cells_per_label[(pct_cells_per_label > 0.03)])
-    
-    seurat_obj_filt <- seurat_obj[, seurat_obj$cell_type %in% populations_to_keep]
+    seurat_obj_subset <- seurat_obj[, seurat_obj$cell_type %in% populations_to_keep]
 
     draw_clusters(
-        seurat_obj_filt,
+        seurat_obj_subset,
         dirpath=file.path(wd, figures_dir, 'integrated', group_name, 'filtered'),
         group_name=group_name,
         split.by='sample_name',
@@ -272,13 +266,13 @@ for (group_name in names(config)) {
 
 
     # ----------------------------------------------------------------------
-    # Find Top Markers
+    # Find Top Markers (Filtered data only)
 
-    Idents(seurat_obj_filt) <- seurat_obj_filt$cell_type
+    Idents(seurat_obj_subset) <- seurat_obj_subset$cell_type
 
     # see: https://satijalab.org/seurat/articles/pbmc3k_tutorial#finding-differentially-expressed-features-cluster-biomarkers
     markers <- FindAllMarkers(
-        seurat_obj_filt,
+        seurat_obj_subset,
         logfc.threshold = 0.25,  # speed
         min.pct = 0.1,
         test.use = "wilcox",
@@ -290,13 +284,14 @@ for (group_name in names(config)) {
         slice_head(n = 12) %>%
         ungroup()
 
-    # Plot
-    seurat_obj_filt <- ScaleData(seurat_obj_filt, verbose = FALSE)  # https://github.com/satijalab/seurat/issues/2960
-    DoHeatmap(seurat_obj_filt, features = top_markers$gene)
+    # Plot Top Markers in a Heatmap
+    # Note ScaleData bug: https://github.com/satijalab/seurat/issues/2960
+    seurat_obj_subset <- ScaleData(seurat_obj_subset, verbose = FALSE)  
+    DoHeatmap(seurat_obj_subset, features = top_markers$gene)
     savefig(file.path(wd, figures_dir, 'integrated', group_name,
                          paste0('heatmap-top_markers-', group_name, '.png')),
             width=1000, troubleshooting=troubleshooting)
-
+    
 
     log_print(paste("Loop completed in:", difftime(Sys.time(), loop_start_time)))
 }

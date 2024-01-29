@@ -111,7 +111,7 @@ draw_qc_plots <- function(
                 x = "Read Counts",
                 y = "Number of Genes")
     if (showfig) { print(fig) }
-    savefig(file.path(dirpath, paste0('violin-reads_vs_seqdepth-', sample_name, '.png')),
+    savefig(file.path(dirpath, paste0('violin-reads_vs_depth-', sample_name, '.png')),
             troubleshooting=troubleshooting)
 
 }
@@ -135,7 +135,7 @@ draw_predictions <- function(
     
     fig <- plotScoreHeatmap(predictions)
     if (showfig) { print(fig) }
-    savefig(file.path(dirpath, paste0('heatmap-', group_name, '-', 'predictions.png')),
+    savefig(file.path(dirpath, paste0('heatmap-predictions-', group_name, '.png')),
             fig=fig, lib='grid', height=1600, width=2400, dpi=300, troubleshooting=troubleshooting)
 
     # ----------------------------------------------------------------------
@@ -199,7 +199,7 @@ draw_clusters <- function(
             label = TRUE
         ) + ggtitle(group_name)
     if (showfig) { print(fig) }
-    savefig(file.path(dirpath, paste0('umap-integrated-', group_name, '-', tolower(opt[['celldex']]), '_labeled.png')),
+    savefig(file.path(dirpath, paste0('umap-integrated-labeled-', group_name, '.png')),
             width=1000*num_samples, troubleshooting=troubleshooting)
     
 }
