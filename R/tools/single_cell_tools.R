@@ -77,7 +77,7 @@ counts_from_seurat <- function(
     barcodes=c(),
     nrows=NA,
     normalized=FALSE  # if this is true, then this returns the same data as SeuratObject::FetchData
-){
+) {
     # genes
     if (length(genes)==0) {
         genes <- 1:nrow(seurat_obj)
