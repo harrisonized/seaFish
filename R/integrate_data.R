@@ -22,7 +22,6 @@ library('optparse')
 library('logr')
 import::from(magrittr, '%>%')
 import::from(dplyr, 'group_by', 'top_n', 'ungroup', 'slice_head')
-import::from(scales, 'trans_breaks', 'trans_format', 'math_format')
 import::from(DropletUtils, 'barcodeRanks')
 import::from(SingleR, 'SingleR', 'plotScoreHeatmap')
 import::from(file.path(wd, 'R', 'tools', 'file_io.R'),
@@ -30,7 +29,7 @@ import::from(file.path(wd, 'R', 'tools', 'file_io.R'),
 import::from(file.path(wd, 'R', 'tools', 'list_tools.R'),
     'multiple_replacement', .character_only=TRUE)
 import::from(file.path(wd, 'R', 'tools', 'plotting.R'),
-    'savefig', .character_only=TRUE)
+    'savefig', 'plot_violin', 'plot_waterfall', .character_only=TRUE)
 import::from(file.path(wd, 'R', 'functions', 'single_cell.R'),
     'celldex_switch', .character_only=TRUE)
 
@@ -90,6 +89,7 @@ log_print(paste('Script started at:', start_time))
 # ----------------------------------------------------------------------
 # Subroutines
 
+
 #' Draw QC plots
 #' 
 #' @description
@@ -98,58 +98,51 @@ draw_qc_plots <- function(
     seurat_obj,
     dirpath,
     sample_name = 'sample',
+    threshold_data = NULL,
     troubleshooting=FALSE
 ) {
+
     # Figure 1. Standard QC Metrics
-    VlnPlot(seurat_obj,
-           c("nCount_RNA", "nFeature_RNA", "percent.mt"),
-           ncol = 3, pt.size = 0.1)
-    savefig(file.path(dirpath, paste0('violin-', sample_name, '-qc.png')),
+    plot_violin(seurat_obj, group.by='sample_name', threshold_data=threshold_data)
+    savefig(file.path(dirpath, paste0('violin-qc-', sample_name, '.png')),
             makedir=TRUE, troubleshooting=troubleshooting)
 
-    # Figure 2. Genes per cell vs. Counts per cell
+    # Figure 2. Waterfall Plot of Read Counts
+    # See: https://sydneybiox.github.io/SingleCellPlus/qc.html#3_qc1:_waterfall_plot
+    barcode_ranks <- barcodeRanks(seurat_obj)
+    plot_waterfall(barcode_ranks)
+    savefig(file.path(dirpath, paste0('waterfall-counts_per_cell-', sample_name, '.png')),
+            troubleshooting=troubleshooting)
+
+
+    # Figure 3. Waterfall Plot of Gene Representation
+    # See: https://ucdavis-bioinformatics-training.github.io/2017_2018-single-cell-RNA-sequencing-Workshop-UCD_UCB_UCSF/day2/scRNA_Workshop-PART2.html
+    cells_per_gene <- data.frame(
+        num_cells=sort(
+            rowSums(seurat_obj[['RNA']]@counts>=2),
+            decreasing=TRUE)
+    )
+    cells_per_gene['rank'] = 1:nrow(seurat_obj[['RNA']]@counts)
+
+    ggplot(cells_per_gene, aes(x = rank, y=num_cells)) +
+        geom_point(size = 0.2) +
+        labs(title = "Cells Per Gene ( >=2 )",
+             x = "Gene Rank",
+             y = "Number of Cells")
+    savefig(file.path(dirpath, paste0('waterfall-cells_per_gene-', sample_name, '.png')),
+            troubleshooting=troubleshooting)
+
+
+    # Figure 4. Genes vs. Read Counts per cell
     ggplot(seurat_obj@meta.data,
            aes(.data[['nCount_RNA']], .data[['nFeature_RNA']])) +
            geom_point(alpha = 0.7, size = 0.5) +
-           labs(x = "Counts Per Cell", y = "Genes Per Cell")
-    savefig(file.path(dirpath, paste0('violin-', sample_name, '-num_genes_vs_counts.png')),
+           labs(title = "Read Counts vs Sequencing Depth",
+                x = "Read Counts",
+                y = "Number of Genes")
+    savefig(file.path(dirpath, paste0('violin-reads_vs_seqdepth-', sample_name, '.png')),
             troubleshooting=troubleshooting)
 
-    # Figure 3. Waterfall plot
-    # See: https://sydneybiox.github.io/SingleCellPlus/qc.html#3_qc1:_waterfall_plot
-
-    barcode = barcodeRanks(seurat_obj)
-    barcode_data = as.data.frame(barcode)
-    knee <- barcode@metadata$knee
-    inflection <- barcode@metadata$inflection
-    barcode_points = data.frame(
-        type = c("inflection", "knee"),
-        value = c(barcode@metadata$inflection, barcode@metadata$knee)
-    )
-
-    ggplot(data = barcode_data, aes(x = rank, y = total)) +
-        geom_point() +
-        geom_hline(data = barcode_points,
-                   aes(yintercept = value,
-                       colour = type), linetype = 2) +
-        scale_x_log10(breaks = trans_breaks("log10", function(x) 10^x),
-                      labels = trans_format("log10", math_format(10^.x))) +
-        scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
-                      labels = trans_format("log10", math_format(10^.x))) +
-        labs(title = "Waterfall plot of read counts",
-             x = "Log Rank",
-             y = "Log Counts")
-    savefig(file.path(dirpath, paste0('waterfall-', sample_name, '-log_count-log_rank.png')),
-            troubleshooting=troubleshooting)
-
-    # Figure 4. Number of cells per gene
-    # See: https://ucdavis-bioinformatics-training.github.io/2017_2018-single-cell-RNA-sequencing-Workshop-UCD_UCB_UCSF/day2/scRNA_Workshop-PART2.html
-    plot(
-        sort(rowSums(seurat_obj[['RNA']]@counts>=2)),
-        xlab="gene rank",
-        ylab="number of cells",
-        main="Cells per genes ( >= 2 )"
-    )
 }
 
 
@@ -186,20 +179,27 @@ for (group_name in names(config)) {
                 tmp_seurat_obj, pattern = "^mt-"
             )
 
+            upper_rna_count <- median(tmp_seurat_obj$nCount_RNA) + 3*sd(tmp_seurat_obj$nCount_RNA)
+            upper_rna_feature <- median(tmp_seurat_obj$nFeature_RNA) + 3*sd(tmp_seurat_obj$nFeature_RNA)
+            upper_pct_mt <- min(median(tmp_seurat_obj$percent.mt) + 3*sd(tmp_seurat_obj$percent.mt), 5)
+            
+            threshold_data <- data.frame(
+                sample_name=sample_name,
+                col=c('nCount_RNA', 'nCount_RNA', 'nFeature_RNA', 'nFeature_RNA', 'percent.mt'),
+                threshold=c(1000, upper_rna_count, 300, upper_rna_feature, upper_pct_mt)
+            )
+
             draw_qc_plots(
                 tmp_seurat_obj,
                 dirpath=file.path(wd, figures_dir, sample_name, 'qc'),
                 sample_name=sample_name,
+                threshold_data = threshold_data,
                 troubleshooting=troubleshooting
             )
 
             # ----------------------------------------------------------------------
             # Filter
 
-            upper_rna_count <- median(tmp_seurat_obj$nCount_RNA) + 3*sd(tmp_seurat_obj$nCount_RNA)
-            upper_rna_feature <- median(tmp_seurat_obj$nFeature_RNA) + 3*sd(tmp_seurat_obj$nFeature_RNA)
-            upper_pct_mt <- median(tmp_seurat_obj$percent.mt) + 3*sd(tmp_seurat_obj$percent.mt)
-            
             tmp_seurat_obj <- subset(tmp_seurat_obj,
                 subset = ((nCount_RNA > 1000) & (nCount_RNA <= upper_rna_count) &
                           (nFeature_RNA > 300) & (nFeature_RNA <= upper_rna_feature) &
@@ -344,7 +344,7 @@ for (group_name in names(config)) {
 
     pct_cells_per_label <- num_cells_per_label/sum(num_cells_per_label)
     populations_to_keep <- names(num_cells_per_label[(pct_cells_per_label > 0.03)])
-    seurat_obj <- seurat_obj[, seurat_obj$cell_type %in% populations_to_keep]
+    seurat_obj_filt <- seurat_obj[, seurat_obj$cell_type %in% populations_to_keep]
 
     # Plot CellDex labeled clusters
     DimPlot(seurat_obj,

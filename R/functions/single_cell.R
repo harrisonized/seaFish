@@ -51,13 +51,11 @@ celldex_switch=list2env(list(
 #' \href{https://satijalab.org/seurat/articles/integration_introduction.html#perform-an-integrated-analysis}{Seurat Documentation}
 #' 
 run_standard_analysis_workflow <- function(seurat_obj, ndim=40) {
-    # seurat_obj <- NormalizeData(seurat_obj, verbose = FALSE)
-    # seurat_obj <- FindVariableFeatures(seurat_obj, verbose = FALSE)
     seurat_obj <- ScaleData(seurat_obj, verbose = FALSE)
-    seurat_obj <- RunPCA(seurat_obj, npcs = ndim, verbose = FALSE)
+    seurat_obj <- RunPCA(seurat_obj, npcs = ndim, verbose = FALSE)  # required for RunUMAP
+    seurat_obj <- RunUMAP(seurat_obj, reduction = "pca", dims = 1:ndim)
     seurat_obj <- FindNeighbors(seurat_obj, reduction = "pca", dims = 1:ndim)
     seurat_obj <- FindClusters(seurat_obj, resolution = 0.5)
-    seurat_obj <- RunUMAP(seurat_obj, reduction = "pca", dims = 1:ndim)
     return(seurat_obj)
 }
 
