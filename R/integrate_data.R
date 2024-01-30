@@ -17,7 +17,7 @@ wd = dirname(this.path::here())  # wd = '~/github/R/seaFish'
 suppressPackageStartupMessages(library('Seurat'))
 library("ggplot2")
 library('rjson')
-library('zeallot')  # %<-%
+library('zeallot')
 library('optparse')
 library('logr')
 import::from(magrittr, '%>%')
@@ -30,7 +30,7 @@ import::from(file.path(wd, 'R', 'tools', 'file_io.R'),
 import::from(file.path(wd, 'R', 'tools', 'list_tools.R'),
     'multiple_replacement', .character_only=TRUE)
 import::from(file.path(wd, 'R', 'tools', 'plotting.R'),
-    'savefig', 'plot_violin', 'plot_waterfall', .character_only=TRUE)
+    'savefig', 'plot_violin', 'plot_waterfall', 'plot_scatter', .character_only=TRUE)
 import::from(file.path(wd, 'R', 'tools', 'single_cell_tools.R'),
     'celldex_switch', .character_only=TRUE)
 import::from(file.path(wd, 'R', 'functions', 'quality_control.R'),
@@ -102,6 +102,7 @@ for (group_name in names(config)) {
     sample_names <- config[[group_name]]
     expr_mtxs <- new.env()
     threshold_data <- new.env()
+
 
     # ----------------------------------------------------------------------
     # Read Data
@@ -219,9 +220,9 @@ for (group_name in names(config)) {
         ref=ref_data,
         labels=ref_data[['label.main']]
     )
+    seurat_obj$cell_type <- predictions[['labels']]
 
     # export RData with predictions
-    seurat_obj$cell_type <- predictions[['labels']]
     filepath=file.path(wd, opt[['output-dir']], 'integrated', paste0(group_name,'.RData'))
     if (!troubleshooting) {
         if ( !dir.exists(dirname(filepath)) ) { dir.create(dirname(filepath), recursive=TRUE) }
@@ -244,6 +245,10 @@ for (group_name in names(config)) {
         showfig=TRUE
     )
 
+    plot_scatter(seurat_obj, group.by=group.by)
+    savefig(file.path(dirpath, paste0('scatter-reads_vs_depth-cell_type-', sample_name, '.png')),
+            troubleshooting=troubleshooting)
+
 
     # ----------------------------------------------------------------------
     # Subset for Cleaner Visualization
@@ -263,6 +268,10 @@ for (group_name in names(config)) {
         troubleshooting=troubleshooting,
         showfig=TRUE
     )
+
+    plot_scatter(seurat_obj, group.by=group.by)
+    savefig(file.path(dirpath, paste0('scatter-reads_vs_depth-cell_type-subset-', sample_name, '.png')),
+            troubleshooting=troubleshooting)
 
 
     # ----------------------------------------------------------------------

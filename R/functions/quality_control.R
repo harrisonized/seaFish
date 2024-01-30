@@ -2,7 +2,7 @@
 
 import::here(ggplot2, 'ggplot', 'aes', 'geom_point', 'labs')
 import::here(file.path(wd, 'R', 'tools', 'plotting.R'),
-    'savefig', 'plot_violin', 'plot_waterfall', .character_only=TRUE)
+    'savefig', 'plot_scatter', 'plot_violin', 'plot_waterfall', .character_only=TRUE)
 
 
 ## Functions
@@ -96,25 +96,20 @@ draw_qc_plots <- function(
              x = "Gene Rank",
              y = "Number of Cells")
     if (showfig) { print(fig) }
-    savefig(file.path(dirpath, paste0('waterfall-cells_per_gene-', sample_name, '.png')),
+    savefig(file.path(dirpath, paste0('histogram-cells_per_gene-', sample_name, '.png')),
             troubleshooting=troubleshooting)
 
     
     # ----------------------------------------------------------------------
     # Figure 4. Genes vs. Read Counts per cell
 
-    fig <- ggplot(seurat_obj@meta.data,
-                  aes(x=.data[['nCount_RNA']], y=.data[['nFeature_RNA']],
-                      colour=.data[[group.by]]) ) +
-           geom_point(alpha = 0.7, size = 0.5) +
-           labs(title = "Read Counts vs Sequencing Depth",
-                x = "Read Counts",
-                y = "Number of Genes")
+    fig <- plot_scatter(seurat_obj, group.by=group.by)
     if (showfig) { print(fig) }
-    savefig(file.path(dirpath, paste0('violin-reads_vs_depth-', sample_name, '.png')),
+    savefig(file.path(dirpath, paste0('scatter-reads_vs_depth-', sample_name, '.png')),
             troubleshooting=troubleshooting)
 
 }
+
 
 
 #' Draw Predictions QC

@@ -53,6 +53,33 @@ savefig <- function(
 }
 
 
+#' Plot Scatter
+#' 
+#' @description
+#' Convenience function to plot a 2d scatterplot
+#' 
+plot_scatter <- function(
+    seurat_obj,
+    x='nCount_RNA',
+    y='nFeature_RNA',
+    group.by='sample_name',
+    title="Read Counts vs Sequencing Depth",
+    xlabel="Read Counts",
+    ylabel="Number of Genes",
+    alpha=0.7,
+    point_size=0.5
+) {
+    
+    fig <- ggplot(seurat_obj@meta.data,
+              aes(x=.data[[x]], y=.data[[y]],
+                  colour=.data[[group.by]]) ) +
+       geom_point(alpha=alpha, size=point_size) +
+       labs(title=title, x=xlabel, y=ylabel)
+
+    return(fig)
+}
+
+
 #' Plot Violin
 #' 
 #' @description
