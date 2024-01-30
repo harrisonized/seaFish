@@ -245,8 +245,9 @@ for (group_name in names(config)) {
         showfig=TRUE
     )
 
-    plot_scatter(seurat_obj, group.by=group.by)
-    savefig(file.path(dirpath, paste0('scatter-reads_vs_depth-cell_type-', sample_name, '.png')),
+    plot_scatter(seurat_obj, group.by='cell_type')
+    savefig(file.path(wd, figures_dir, 'integrated', group_name,
+                      paste0('scatter-reads_vs_depth-cell_type-', group_name, '.png')),
             troubleshooting=troubleshooting)
 
 
@@ -269,8 +270,9 @@ for (group_name in names(config)) {
         showfig=TRUE
     )
 
-    plot_scatter(seurat_obj, group.by=group.by)
-    savefig(file.path(dirpath, paste0('scatter-reads_vs_depth-cell_type-subset-', sample_name, '.png')),
+    plot_scatter(seurat_obj_subset, group.by='cell_type')
+    savefig(file.path(wd, figures_dir, 'integrated', group_name, 'filtered',
+                      paste0('scatter-reads_vs_depth-cell_type-subset-', group_name, '.png')),
             troubleshooting=troubleshooting)
 
 

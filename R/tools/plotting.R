@@ -10,6 +10,7 @@ import::here(file.path(wd, 'R', 'tools', 'list_tools.R'),
 
 ## Functions
 ## save_fig
+## plot_scatter
 ## plot_violin
 ## plot_waterfall
 
