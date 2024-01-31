@@ -69,7 +69,11 @@ option_list = list(
 
     make_option(c("-e", "--ensembl"),  default=FALSE,
                 metavar="FALSE", action="store_true", type="logical",
-                help="When querying celldex"),
+                help="Used when querying celldex"),
+
+    make_option(c("-g", "--gene-of-interest"), default="Dnase1l1",
+                metavar="Dnase1l1", type="character",
+                help="choose a gene"),
 
     make_option(c("-t", "--troubleshooting"), default=FALSE, action="store_true",
                 metavar="FALSE", type="logical",
@@ -81,6 +85,7 @@ troubleshooting <- opt[['troubleshooting']]
 figures_dir <- multiple_replacement(
     opt[['input-dir']], c('data'='figures', 'input'='output')
 )
+gene <- opt[["gene-of-interest"]]
 
 # Start Log
 start_time <- Sys.time()
@@ -191,7 +196,7 @@ for (group_name in names(config)) {
 
     draw_qc_plots(
         seurat_obj,
-        dirpath=file.path(wd, figures_dir, 'integrated', group_name, 'qc'),
+        dirpath=file.path(wd, figures_dir, 'integrated', group_name, 'full', 'qc'),
         sample_name=group_name,
         group.by='sample_name',
         threshold_data=threshold_data,
@@ -231,7 +236,7 @@ for (group_name in names(config)) {
 
     draw_predictions(
         predictions,
-        dirpath=file.path(wd, figures_dir, 'integrated', group_name),
+        dirpath=file.path(wd, figures_dir, 'integrated', group_name, 'full'),
         group_name=group_name,
         troubleshooting=troubleshooting,
         showfig=TRUE
@@ -239,17 +244,45 @@ for (group_name in names(config)) {
 
     draw_clusters(
         seurat_obj,
-        dirpath=file.path(wd, figures_dir, 'integrated', group_name),
+        dirpath=file.path(wd, figures_dir, 'integrated', group_name, 'full'),
         group_name=group_name,
         troubleshooting=troubleshooting,
         showfig=TRUE
     )
 
     plot_scatter(seurat_obj, group.by='cell_type')
-    savefig(file.path(wd, figures_dir, 'integrated', group_name,
-                      paste0('scatter-reads_vs_depth-cell_type-', group_name, '.png')),
-            troubleshooting=troubleshooting)
+    if (!troubleshooting) {
+        savefig(file.path(wd, figures_dir, 'integrated', group_name, 'full', 'qc',
+                          paste0('scatter-reads_vs_depth-cell_type-', group_name, '.png')),
+        troubleshooting=troubleshooting)
+    }
 
+
+    # ----------------------------------------------------------------------
+    # Gene of Interest
+
+    seurat_obj[[gene]] <- seurat_obj[["RNA"]]@data[gene, ]
+
+    FeaturePlot(seurat_obj,
+                reduction = "umap", features = gene,
+                pt.size = 0.4, min.cutoff = 'q10', order = TRUE, label = FALSE) +
+        ggtitle( paste(opt[['gene-of-interest']], 'in', group_name) )
+    if (!troubleshooting) {
+        savefig(file.path(wd, figures_dir, 'integrated', group_name, 'gene', gene,
+                          paste0('umap-integrated-', group_name, '-', tolower(gene), '.png')),
+                height=800, width=800,
+                troubleshooting=troubleshooting)
+    }
+
+    plot_violin(seurat_obj,
+        cols=c(gene), group.by='cell_type',
+        threshold_data=NULL, alpha=0.5)
+    if (!troubleshooting) {
+        savefig(file.path(wd, figures_dir, 'integrated', group_name, 'gene', gene,
+                          paste0('violin-integrated-', group_name, '-', tolower(gene), '.png')),
+                height=800, width=800,
+                troubleshooting=troubleshooting)
+    }
 
     # ----------------------------------------------------------------------
     # Subset for Cleaner Visualization
@@ -263,17 +296,22 @@ for (group_name in names(config)) {
 
     draw_clusters(
         seurat_obj_subset,
-        dirpath=file.path(wd, figures_dir, 'integrated', group_name, 'filtered'),
+        dirpath=file.path(wd, figures_dir, 'integrated', group_name, 'subset'),
         group_name=group_name,
         split.by='sample_name',
         troubleshooting=troubleshooting,
         showfig=TRUE
     )
 
-    plot_scatter(seurat_obj_subset, group.by='cell_type')
-    savefig(file.path(wd, figures_dir, 'integrated', group_name, 'filtered',
-                      paste0('scatter-reads_vs_depth-cell_type-subset-', group_name, '.png')),
-            troubleshooting=troubleshooting)
+    draw_qc_plots(
+        seurat_obj_subset,
+        dirpath=file.path(wd, figures_dir, 'integrated', group_name, 'subset',  'qc'),
+        sample_name=group_name,
+        group.by='cell_type',
+        threshold_data=NULL,
+        troubleshooting=troubleshooting,
+        showfig=TRUE
+    )
 
 
     # ----------------------------------------------------------------------
@@ -299,10 +337,25 @@ for (group_name in names(config)) {
     # Note ScaleData bug: https://github.com/satijalab/seurat/issues/2960
     seurat_obj_subset <- ScaleData(seurat_obj_subset, verbose = FALSE)  
     DoHeatmap(seurat_obj_subset, features = top_markers$gene)
-    savefig(file.path(wd, figures_dir, 'integrated', group_name,
-                         paste0('heatmap-top_markers-', group_name, '.png')),
-            width=1000, troubleshooting=troubleshooting)
-    
+    if (!troubleshooting) {
+        savefig(file.path(wd, figures_dir, 'integrated', group_name, 'subset',
+                     paste0('heatmap-top_markers-', group_name, '.png')),
+        width=1000, troubleshooting=troubleshooting)
+    }
+
+
+    # ----------------------------------------------------------------------
+    # Gene of Interest
+
+    plot_violin(seurat_obj_subset,
+        cols=c(gene), group.by='cell_type',
+        threshold_data=NULL, alpha=0.5)
+    if (!troubleshooting) {
+        savefig(file.path(wd, figures_dir, 'integrated', group_name, 'gene', gene,
+                          paste0('violin-integrated-', group_name, '-subset-', tolower(gene), '.png')),
+                height=800, width=800,
+                troubleshooting=troubleshooting)
+    }
 
     log_print(paste("Loop completed in:", difftime(Sys.time(), loop_start_time)))
 }

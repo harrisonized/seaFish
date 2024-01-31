@@ -115,7 +115,6 @@ draw_qc_plots <- function(
 #' Draw Predictions QC
 #' 
 #' @description
-#' Plot UMAPs after clustering
 #' 
 draw_predictions <- function(
     predictions,
@@ -130,7 +129,7 @@ draw_predictions <- function(
     
     fig <- plotScoreHeatmap(predictions)
     if (showfig) { print(fig) }
-    savefig(file.path(dirpath, paste0('heatmap-predictions-', group_name, '.png')),
+    savefig(file.path(dirpath, paste0('heatmap-prediction_score-', group_name, '.png')),
             fig=fig, lib='grid', height=1600, width=2400, dpi=300, troubleshooting=troubleshooting)
 
     # ----------------------------------------------------------------------
