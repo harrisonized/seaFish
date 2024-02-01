@@ -14,7 +14,10 @@ import::here(file.path(wd, 'R', 'tools', 'plotting.R'),
 
 #' Compute Thresholds
 #'
-compute_thresholds <- function(seurat_obj) {
+compute_thresholds <- function(
+    seurat_obj,
+    sample_name = 'SeruatProject'
+) {
 
     thresholds <- new.env()  # upper thresholds
     for (col in c('nCount_RNA', 'nFeature_RNA', 'percent.mt')) {
@@ -52,6 +55,7 @@ compute_thresholds <- function(seurat_obj) {
 draw_qc_plots <- function(
     seurat_obj,
     dirpath,
+    prefix=NULL,
     sample_name='SeuratProject',
     group.by='sample_name',
     threshold_data = NULL,
@@ -64,7 +68,7 @@ draw_qc_plots <- function(
     
     fig <- plot_violin(seurat_obj, group.by=group.by, threshold_data=threshold_data)
     if (showfig) { print(fig) }
-    savefig(file.path(dirpath, paste0('violin-qc-', sample_name, '.png')),
+    savefig(file.path(dirpath, paste0('violin-counts_features_mt-', prefix, sample_name, '.png')),
             makedir=TRUE, troubleshooting=troubleshooting)
 
     
@@ -75,12 +79,19 @@ draw_qc_plots <- function(
     barcode_ranks <- barcodeRanks(seurat_obj)
     fig <- plot_waterfall(barcode_ranks)
     if (showfig) { print(fig) }
-    savefig(file.path(dirpath, paste0('waterfall-counts_per_cell-', sample_name, '.png')),
+    savefig(file.path(dirpath, paste0('waterfall-count_vs_rank-', prefix, sample_name, '.png')),
             troubleshooting=troubleshooting)
 
+    # ----------------------------------------------------------------------
+    # Figure 3. Genes vs. Read Counts per cell
+
+    fig <- plot_scatter(seurat_obj, group.by=group.by)
+    if (showfig) { print(fig) }
+    savefig(file.path(dirpath, paste0('scatter-features_vs_counts-', prefix, sample_name, '.png')),
+            troubleshooting=troubleshooting)
    
     # ----------------------------------------------------------------------
-    # Figure 3. Waterfall Plot of Gene Representation
+    # Figure 4. Waterfall Plot of Gene Representation
     # See: https://ucdavis-bioinformatics-training.github.io/2017_2018-single-cell-RNA-sequencing-Workshop-UCD_UCB_UCSF/day2/scRNA_Workshop-PART2.html
     
     cells_per_gene <- data.frame(
@@ -96,18 +107,8 @@ draw_qc_plots <- function(
              x = "Gene Rank",
              y = "Number of Cells")
     if (showfig) { print(fig) }
-    savefig(file.path(dirpath, paste0('histogram-cells_per_gene-', sample_name, '.png')),
+    savefig(file.path(dirpath, paste0('histogram-cells_per_gene-', prefix, sample_name, '.png')),
             troubleshooting=troubleshooting)
-
-    
-    # ----------------------------------------------------------------------
-    # Figure 4. Genes vs. Read Counts per cell
-
-    fig <- plot_scatter(seurat_obj, group.by=group.by)
-    if (showfig) { print(fig) }
-    savefig(file.path(dirpath, paste0('scatter-reads_vs_depth-', sample_name, '.png')),
-            troubleshooting=troubleshooting)
-
 }
 
 
@@ -119,6 +120,7 @@ draw_qc_plots <- function(
 draw_predictions <- function(
     predictions,
     dirpath,
+    prefix=NULL,
     group_name='SeuratProject',
     troubleshooting=FALSE,
     showfig=FALSE
@@ -129,8 +131,9 @@ draw_predictions <- function(
     
     fig <- plotScoreHeatmap(predictions)
     if (showfig) { print(fig) }
-    savefig(file.path(dirpath, paste0('heatmap-prediction_score-', group_name, '.png')),
-            fig=fig, lib='grid', height=1600, width=2400, dpi=300, troubleshooting=troubleshooting)
+    savefig(file.path(dirpath, paste0('heatmap-prediction_score-', prefix, group_name, '.png')),
+            fig=fig, lib='grid', height=1600, width=2400, dpi=300,
+            makedir=TRUE, troubleshooting=troubleshooting)
 
     # ----------------------------------------------------------------------
     # Figure 2. Number of cells per label
@@ -145,7 +148,7 @@ draw_predictions <- function(
              y = "Number of Cells") +
         scale_x_discrete(guide = guide_axis(angle = 45))
     if (showfig) { print(fig) }
-    savefig(file.path(dirpath, paste0('histogram-cells_type_dist-', group_name, '.png')),
+    savefig(file.path(dirpath, paste0('histogram-cell_type-', prefix, group_name, '.png')),
             height=800, width=1200, dpi=400, troubleshooting=troubleshooting)
 
 }
@@ -159,6 +162,7 @@ draw_predictions <- function(
 draw_clusters <- function(
     seurat_obj,
     dirpath,
+    prefix=NULL,
     group_name='SeuratProject',
     split.by=NULL,
     troubleshooting=FALSE,
@@ -179,8 +183,9 @@ draw_clusters <- function(
               plot.title = element_text(hjust = 0.5)) +
         ggtitle("Seurat FindClusters")
     if (showfig) { print(fig) }
-    savefig(file.path(dirpath, paste0('umap-integrated-unlabeled-', group_name, '.png')),
-            width=1000*num_samples, makedir=TRUE, troubleshooting=troubleshooting)
+    savefig(file.path(dirpath, paste0('umap-integrated-unlabeled-', prefix, group_name, '.png')),
+            width=1000*num_samples,
+            makedir=TRUE, troubleshooting=troubleshooting)
 
 
     # ----------------------------------------------------------------------
@@ -193,7 +198,7 @@ draw_clusters <- function(
             label = TRUE
         ) + ggtitle(group_name)
     if (showfig) { print(fig) }
-    savefig(file.path(dirpath, paste0('umap-integrated-labeled-', group_name, '.png')),
+    savefig(file.path(dirpath, paste0('umap-integrated-labeled-', prefix, group_name, '.png')),
             width=1000*num_samples, troubleshooting=troubleshooting)
     
 }
