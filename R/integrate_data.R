@@ -21,10 +21,13 @@ library('zeallot')
 library('optparse')
 library('logr')
 import::from(magrittr, '%>%')
-import::from(dplyr, 'group_by', 'top_n', 'ungroup', 'slice_head', 'filter')
+import::from(tidyr, 'pivot_longer')
+import::from(dplyr, 'group_by', 'ungroup', 'filter', 'top_n', 'slice_head', 'select')
 import::from(DropletUtils, 'barcodeRanks')
 import::from(SingleR, 'SingleR', 'plotScoreHeatmap')
 
+import::from(file.path(wd, 'R', 'tools', 'df_tools.R'),
+    'fillna', .character_only=TRUE)
 import::from(file.path(wd, 'R', 'tools', 'file_io.R'),
     'read_10x', .character_only=TRUE)
 import::from(file.path(wd, 'R', 'tools', 'list_tools.R'),
@@ -34,7 +37,8 @@ import::from(file.path(wd, 'R', 'tools', 'plotting.R'),
 import::from(file.path(wd, 'R', 'tools', 'single_cell_tools.R'),
     'celldex_switch', .character_only=TRUE)
 import::from(file.path(wd, 'R', 'functions', 'quality_control.R'),
-    'compute_thresholds', 'draw_qc_plots', 'draw_predictions', 'draw_clusters',
+    'compute_thresholds', 'compute_cell_counts',
+    'draw_qc_plots', 'draw_predictions', 'draw_clusters', 'draw_gene_of_interest',
     .character_only=TRUE)
 
 
@@ -228,16 +232,20 @@ for (group_name in names(config)) {
         labels=ref_data[['label.main']]
     )
     seurat_obj$cell_type <- predictions[['labels']]
+    Idents(seurat_obj) <- seurat_obj$cell_type
 
     # export predictions as RData
-    filepath=file.path(wd, output_dir, 'integrated', paste0(group_name,'.RData'))
+    filepath=file.path(wd, output_dir, 'rdata', paste0('integrated-', group_name, '.RData'))
     if (!troubleshooting) {
         if (!dir.exists(dirname(filepath))) { dir.create(dirname(filepath), recursive=TRUE) }
         save(seurat_obj, file=filepath)
     }
 
-    # Label gene of interest
-    seurat_obj[[gene]] <- seurat_obj[["RNA"]]@data[gene, ]
+    # import::from(file.path(wd, 'R', 'tools', 'file_io.R'),
+    #     'load_rdata', .character_only=TRUE) 
+    # seurat_obj <- load_rdata(
+    #     filepath=file.path(wd, output_dir, 'integrated', paste0(group_name,'.RData'))
+    # )
 
 
     # ----------------------------------------------------------------------
@@ -258,6 +266,10 @@ for (group_name in names(config)) {
         showfig=TRUE
     )
 
+
+    # ----------------------------------------------------------------------
+    # Gene of Interest
+
     draw_clusters(
         seurat_obj,
         dirpath=file.path(wd, figures_dir, 'integrated', group_name, 'expression'),
@@ -266,27 +278,47 @@ for (group_name in names(config)) {
         showfig=TRUE
     )
 
-    # gene of interest
-    FeaturePlot(seurat_obj,
-                reduction = "umap", features = gene,
-                pt.size = 0.4, min.cutoff = 'q10', order = TRUE, label = FALSE) +
-        ggtitle( paste(opt[['gene-of-interest']], 'in', group_name) )
+    cell_counts <- compute_cell_counts(seurat_obj, gene=gene, ident='cell_type')
+
+    # save as csv
+    filepath=file.path(wd, output_dir, 'expression',
+                       paste0(group_name, '-cell_type-', tolower(gene), '.csv'))
     if (!troubleshooting) {
-        savefig(file.path(wd, figures_dir, 'integrated', group_name, 'expression', tolower(gene),
-                          paste0('umap-integrated-', group_name, '-', tolower(gene), '.png')),
-                height=800, width=800,
-                troubleshooting=troubleshooting)
+        if ( !dir.exists(dirname(filepath)) ) { dir.create(dirname(filepath), recursive=TRUE) }
+        write.table(cell_counts, file = filepath, row.names = FALSE, sep = ',')
     }
 
-    # gene of interest
-    plot_violin(seurat_obj,
-                cols=c(gene), group.by='cell_type',
-                threshold_data=NULL, alpha=0.5)
+    draw_gene_of_interest(
+        seurat_obj,
+        gene=gene,
+        dirpath=file.path(wd, figures_dir, 'integrated', group_name, 'expression'),
+        group_name=group_name,
+        troubleshooting=troubleshooting,
+        showfig=TRUE
+    )
+
+    value_cols = c('num_cells_neg', 'num_cells_pos')
+    cell_counts_long <- cell_counts %>%
+        select(all_of(c('cell_type', value_cols))) %>%
+        pivot_longer(cols=value_cols)
+    cell_counts_long[gene] <- sapply(cell_counts_long['name'], function(x) gsub('num_cells_', '', x))
+    
+    ggplot(data=cell_counts_long[order(-cell_counts_long$value, decreasing = FALSE), ],
+           aes( x=reorder(.data[['cell_type']], .data[['value']], decreasing=TRUE),
+                y=.data[['value']],
+                fill=.data[[gene]] )
+        ) +
+        geom_bar(stat="identity") +
+        labs(title = paste0('Number of ', gene, '+ Cells'),
+             x = NULL,
+             y = "Number of Cells") +
+        scale_x_discrete(guide = guide_axis(angle = 45)) +
+        theme(legend.position = "bottom")
+    
     if (!troubleshooting) {
         savefig(file.path(wd, figures_dir, 'integrated', group_name, 'expression', tolower(gene),
-                          paste0('violin-integrated-', group_name, '-', tolower(gene), '.png')),
-                height=800, width=800,
-                troubleshooting=troubleshooting)
+                              paste0('histogram-cell_type-', group_name, '-', tolower(gene), '.png')),
+                height=800, width=1200, dpi=400, troubleshooting=troubleshooting)
     }
 
 
@@ -322,6 +354,7 @@ for (group_name in names(config)) {
     )
 
     # gene of interest
+    seurat_obj_subset[[gene]] <- seurat_obj_subset[["RNA"]]@data[gene, ]
     plot_violin(seurat_obj_subset,
         cols=c(gene), group.by='cell_type',
         threshold_data=NULL, alpha=0.5)
@@ -350,11 +383,12 @@ for (group_name in names(config)) {
 
     # Plot heatmap
     seurat_obj_subset <- ScaleData(seurat_obj_subset, verbose = FALSE)  # see: https://github.com/satijalab/seurat/issues/2960
-    DoHeatmap(seurat_obj_subset, features = top_markers$gene)
+    DoHeatmap(seurat_obj_subset, features = top_markers$gene, label=FALSE, raster=TRUE)
     if (!troubleshooting) {
         savefig(file.path(wd, figures_dir, 'integrated', group_name, 'clustering',
                      paste0('heatmap-top_markers-', group_name, '.png')),
-                width=1000, troubleshooting=troubleshooting)
+                height=400*length(populations_to_keep), width=1200, dpi=400,
+                troubleshooting=troubleshooting)
     }
 
     log_print(paste("Loop completed in:", difftime(Sys.time(), loop_start_time)))

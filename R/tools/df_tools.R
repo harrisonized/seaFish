@@ -1,5 +1,34 @@
 ## Functions
+## fillna
 ## reset_index
+
+
+#' Fill specific column with NA
+#' 
+#' @description Mirrors Pandas' \href{https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.fillna.html}{fillna}
+#' 
+#' @param df a dataframe
+#' @param cols a list of columns to replace
+#' @param val the value to fill with
+#' @param inplace TRUE allows you to avoid re-assigning the variable
+#' @return Returns a dataframe.
+#' 
+#' @examples
+#' mtcars['new_col'] <- NA
+#' head(fillna(mtcars, c('new_col'), 1))
+#' 
+#' @export
+fillna <- function(df, cols, val=0, inplace=FALSE) {
+    df_name <- deparse(substitute(df))
+    for (col in cols) {
+        df[is.na(df[, col]), col] <- val
+    }
+    if (inplace) {
+        assign(df_name, df, envir=.GlobalEnv)
+    } else {
+        return(df)
+    }
+}
 
 
 #' Reset index

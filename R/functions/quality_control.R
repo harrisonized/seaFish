@@ -1,5 +1,6 @@
 ## Subroutines for the main scripts
 
+import::here(dplyr, 'count')
 import::here(ggplot2, 'ggplot', 'aes', 'geom_point', 'labs')
 import::here(file.path(wd, 'R', 'tools', 'plotting.R'),
     'savefig', 'plot_scatter', 'plot_violin', 'plot_waterfall', .character_only=TRUE)
@@ -7,9 +8,11 @@ import::here(file.path(wd, 'R', 'tools', 'plotting.R'),
 
 ## Functions
 ## compute_thresholds
+## compute_cell_counts
 ## draw_qc_plots
 ## draw_predictions
 ## draw_clusters
+## draw_gene_of_interest
 
 
 #' Compute Thresholds
@@ -45,6 +48,31 @@ compute_thresholds <- function(
             thresholds[['nFeature_RNA']],
             thresholds[['percent.mt']])
     )
+}
+
+
+#' Compute Cell Counts
+#'
+compute_cell_counts <- function(seurat_obj, gene, ident='cell_type') {
+
+    seurat_obj[[gene]] <- seurat_obj[["RNA"]]@data[gene, ]
+
+    num_total_cells <- count(seurat_obj@meta.data, .data[[ident]], name='num_cells')
+    num_pos_cells <- count(
+        filter(seurat_obj@meta.data, (.data[[gene]] > 5e-5)),
+        cell_type, name='num_cells')
+    cell_counts <- merge(
+        num_total_cells, num_pos_cells,
+        by = 'cell_type',
+        all.x=TRUE,  # left join
+        suffixes = c("_total", '_pos')
+    )
+    cell_counts <- fillna(cell_counts, cols=c('num_cells_pos'), 0)
+
+    cell_counts['num_cells_neg'] <- cell_counts['num_cells_total'] - cell_counts['num_cells_pos']
+    cell_counts['pct_cells_pos'] <- cell_counts['num_cells_pos'] / cell_counts['num_cells_total']
+
+    return(cell_counts)
 }
 
 
@@ -172,7 +200,7 @@ draw_clusters <- function(
     num_samples <- max(length(unname(unlist(unique( seurat_obj[[split.by]] )))), 1)
 
     # ----------------------------------------------------------------------
-    # Seurat FindClusters Result
+    # Figure 1. Seurat FindClusters Result
 
     fig <- DimPlot(seurat_obj,
             reduction = "umap",
@@ -189,7 +217,7 @@ draw_clusters <- function(
 
 
     # ----------------------------------------------------------------------
-    # Plot CellDex labeled clusters
+    # Figure 2. Plot CellDex labeled clusters
 
     fig <- DimPlot(seurat_obj,
             reduction = "umap", 
@@ -201,4 +229,63 @@ draw_clusters <- function(
     savefig(file.path(dirpath, paste0('umap-integrated-labeled-', prefix, group_name, '.png')),
             width=1000*num_samples, troubleshooting=troubleshooting)
     
+}
+
+
+#' Draw Gene of Interest
+#' 
+#' @description
+#' 
+draw_gene_of_interest <- function(
+    seurat_obj,
+    gene,
+    dirpath,
+    prefix=NULL,
+    group_name='SeuratProject',
+    troubleshooting=FALSE,
+    showfig=FALSE
+) {
+
+    seurat_obj[[gene]] <- seurat_obj[["RNA"]]@data[gene, ]
+
+    # ----------------------------------------------------------------------
+    # Figure 1. UMAP
+
+    FeaturePlot(seurat_obj,
+                reduction = "umap", features = gene,
+                pt.size = 0.4, min.cutoff = 'q10', order = TRUE, label = FALSE) +
+        ggtitle( paste(opt[['gene-of-interest']], 'in', group_name) )
+    if (!troubleshooting) {
+        savefig(file.path(wd, figures_dir, 'integrated', group_name, 'expression', tolower(gene),
+                          paste0('umap-integrated-', group_name,  '-', prefix, tolower(gene), '.png')),
+                height=800, width=800,
+                troubleshooting=troubleshooting)
+    }
+
+
+    # ----------------------------------------------------------------------
+    # Figure 2. Violin
+
+    plot_violin(seurat_obj,
+                cols=c(gene), group.by='cell_type',
+                threshold_data=NULL, alpha=0.5)
+    if (!troubleshooting) {
+        savefig(file.path(wd, figures_dir, 'integrated', group_name, 'expression', tolower(gene),
+                          paste0('violin-integrated-', group_name, '-', prefix, tolower(gene), '.png')),
+                height=800, width=800,
+                troubleshooting=troubleshooting)
+    }
+
+
+    # ----------------------------------------------------------------------
+    # Figure 3. Ridge without 0
+
+    RidgePlot(seurat_obj, gene) + xlim(5e-5, NA)
+    if (!troubleshooting) {
+        savefig(file.path(wd, figures_dir, 'integrated', group_name, 'expression', tolower(gene),
+                          paste0('ridge-integrated-', group_name, '-', prefix, tolower(gene), '.png')),
+                height=800, width=800,
+                troubleshooting=troubleshooting)
+    }
+
 }
