@@ -1,4 +1,3 @@
-# library('Matrix')
 wd = dirname(dirname(this.path::here()))
 import::here(ggplot2, 'ggsave')
 import::here(grid, 'grid.newpage', 'grid.draw')
@@ -10,8 +9,8 @@ import::here(file.path(wd, 'R', 'tools', 'list_tools.R'),
 
 ## Functions
 ## save_fig
-## plot_scatter
 ## plot_violin
+## plot_scatter
 ## plot_waterfall
 
 
@@ -51,33 +50,6 @@ savefig <- function(
             warning(paste0("lib='", lib, "' not found"))
         }
     }
-}
-
-
-#' Plot Scatter
-#' 
-#' @description
-#' Convenience function to plot a 2d scatterplot
-#' 
-plot_scatter <- function(
-    seurat_obj,
-    x='nCount_RNA',
-    y='nFeature_RNA',
-    group.by='sample_name',
-    title="Read Counts vs Sequencing Depth",
-    xlabel="Read Counts",
-    ylabel="Number of Genes",
-    alpha=0.7,
-    point_size=0.5
-) {
-    
-    fig <- ggplot(seurat_obj@meta.data,
-              aes(x=.data[[x]], y=.data[[y]],
-                  colour=.data[[group.by]]) ) +
-       geom_point(alpha=alpha, size=point_size) +
-       labs(title=title, x=xlabel, y=ylabel)
-
-    return(fig)
 }
 
 
@@ -169,30 +141,104 @@ plot_violin <- function(
 }
 
 
+#' Plot Scatter
+#' 
+#' @description
+#' Make a simple 2D scatterplot
+#' 
+plot_scatter <- function(
+    df,
+    x='nCount_RNA',
+    y='nFeature_RNA',
+    color='sample_name',  # NULL for no groups
+    xlabel="Read Counts",
+    ylabel="Number of Genes",
+    title="Read Counts vs Sequencing Depth",
+    alpha=0.7,
+    point_size=0.5,
+    log_x=FALSE,
+    log_y=FALSE,
+    legend_large_circle=TRUE
+) {
+
+    # group.by
+    if (is.null(color)) { colour <- NULL } else { colour <- sym(color) }
+
+    # scale axes
+    if (log_x) {
+        scale_x <- scale_x_log10(
+            breaks = trans_breaks("log10", function(x) 10^x),
+            labels = trans_format("log10", math_format(10^.x))
+        )
+    } else { scale_x <- list() }
+    if (log_y) {
+        scale_y <- scale_y_log10(
+            breaks = trans_breaks("log10", function(x) 10^x),
+            labels = trans_format("log10", math_format(10^.x))
+        )
+    } else { scale_y <- list() }
+
+    if (legend_large_circle) {
+        guide <- guides( colour=guide_legend(override.aes=list(size=4L,alpha=1)) )
+    } else {
+        guide <- list()
+    }
+
+    # plot
+    fig <- ggplot(df,
+              aes(x=.data[[x]], y=.data[[y]],
+                  colour=!!colour) ) +
+       geom_point(alpha=alpha, size=point_size) +
+       labs(x=xlabel, y=ylabel, title=title) + 
+       guide +
+       scale_x +
+       scale_y
+
+    return(fig)
+}
+
+
 #' Plot Waterfall
+#' 
+#' @description
+#' Wrapper around plot_scatter
 #' 
 #' @references
 #' \href{https://sydneybiox.github.io/SingleCellPlus/qc.html#3_qc1:_waterfall_plot}
-#'  
-plot_waterfall <- function(barcode_ranks) {
+#' 
+plot_waterfall <- function(
+    barcode_ranks,
+    x='rank',
+    y='total',
+    xlabel="Counts Per Cell",
+    ylabel="Cell Rank",
+    title="Read Counts",
+    show_thresholds=TRUE
+) {
 
-    barcode_points = data.frame(
-        type = c("knee", "inflection"),
-        value = c(barcode_ranks@metadata$knee, barcode_ranks@metadata$inflection)
-    )
+    if (show_thresholds) {
+        thresholds <- data.frame(
+            type = c("knee",
+                     "inflection"),
+            value = c(barcode_ranks@metadata$knee,
+                      barcode_ranks@metadata$inflection)
+        )
+        hline <- geom_hline(
+            data=thresholds,
+            aes(yintercept = value, colour = type),
+            linetype = 2
+        )
+    } else { hline <- list() }
 
-    fig <- ggplot(data = as.data.frame(barcode_ranks), aes(x = rank, y = total)) +
-        geom_point() +
-        geom_hline(data = barcode_points,
-                   aes(yintercept = value,
-                       colour = type), linetype = 2) +
-        scale_x_log10(breaks = trans_breaks("log10", function(x) 10^x),
-                      labels = trans_format("log10", math_format(10^.x))) +
-        scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
-                      labels = trans_format("log10", math_format(10^.x))) +
-        labs(title = "Counts Per Cell",
-             x = "Cell Rank",
-             y = "Read Counts")
-
+    fig <- plot_scatter(
+        as.data.frame(barcode_ranks),
+        x=x, y=y, color=NULL,
+        xlabel=xlabel, ylabel=ylabel, title=title,
+        log_x=TRUE, log_y=TRUE,
+        legend_large_circle = FALSE
+    ) +
+    hline +
+    guides( color=guide_legend( override.aes=list(shape=c(NA, NA)) ))
+    
     return(fig)
 }

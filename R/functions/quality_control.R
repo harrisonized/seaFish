@@ -5,7 +5,6 @@ import::here(ggplot2, 'ggplot', 'aes', 'geom_point', 'labs')
 import::here(file.path(wd, 'R', 'tools', 'plotting.R'),
     'savefig', 'plot_scatter', 'plot_violin', 'plot_waterfall', .character_only=TRUE)
 
-
 ## Functions
 ## compute_thresholds
 ## compute_cell_counts
@@ -113,7 +112,7 @@ draw_qc_plots <- function(
     # ----------------------------------------------------------------------
     # Figure 3. Genes vs. Read Counts per cell
 
-    fig <- plot_scatter(seurat_obj, group.by=group.by)
+    fig <- plot_scatter(seurat_obj@meta.data, color=group.by)
     if (showfig) { print(fig) }
     savefig(file.path(dirpath, paste0('scatter-features_vs_counts-', prefix, sample_name, '.png')),
             troubleshooting=troubleshooting)
@@ -123,22 +122,20 @@ draw_qc_plots <- function(
     # See: https://ucdavis-bioinformatics-training.github.io/2017_2018-single-cell-RNA-sequencing-Workshop-UCD_UCB_UCSF/day2/scRNA_Workshop-PART2.html
     
     cells_per_gene <- data.frame(
-        num_cells=sort(
-            rowSums(seurat_obj[['RNA']]@counts>=2),
-            decreasing=TRUE)
+        num_cells=sort(rowSums(seurat_obj[['RNA']]@counts>=2), decreasing=TRUE)
     )
     cells_per_gene['rank'] = 1:nrow(seurat_obj[['RNA']]@counts)
 
-    fig <- ggplot(cells_per_gene, aes(x = rank, y=num_cells)) +
-        geom_point(size = 0.2) +
-        labs(title = "Cells Per Gene ( >=2 )",
-             x = "Gene Rank",
-             y = "Number of Cells")
+    fig <- plot_scatter(
+        cells_per_gene,
+        x='rank',  y='num_cells', color=NULL,
+        xlabel="Number of Cells", ylabel="Gene Rank",
+        title="Cells Per Gene ( >=2 )",
+        point_size=0.2)
     if (showfig) { print(fig) }
     savefig(file.path(dirpath, paste0('histogram-cells_per_gene-', prefix, sample_name, '.png')),
             troubleshooting=troubleshooting)
 }
-
 
 
 #' Draw Predictions QC

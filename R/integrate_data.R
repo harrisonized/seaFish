@@ -12,6 +12,7 @@
 ## https://satijalab.org/seurat/articles/pbmc3k_tutorial.html
 ## https://www.10xgenomics.com/analysis-guides/common-considerations-for-quality-control-filters-for-single-cell-rna-seq-data
 
+## TODO: filter genes with 50 cells, undo the seurat_obj_subset
 
 wd = dirname(this.path::here())  # wd = '~/github/R/seaFish'
 suppressPackageStartupMessages(library('Seurat'))
@@ -197,7 +198,7 @@ for (group_name in names(config)) {
 
     features_list <- SelectIntegrationFeatures(object.list = expr_mtxs, nfeatures = 2000)
     anchors <- FindIntegrationAnchors(object.list = expr_mtxs, anchor.features = features_list)
-    seurat_obj <- IntegrateData(anchorset = anchors)
+    seurat_obj <- IntegrateData(anchorset = anchors)  # r.pca runs faster?
     DefaultAssay(seurat_obj) <- "integrated"
 
     draw_qc_plots(
@@ -251,7 +252,7 @@ for (group_name in names(config)) {
     # ----------------------------------------------------------------------
     # Plot
 
-    plot_scatter(seurat_obj, group.by='cell_type')
+    plot_scatter(seurat_obj, color='cell_type')
     if (!troubleshooting) {
         savefig(file.path(wd, figures_dir, 'integrated', group_name, 'qc',
                           paste0('scatter-features_vs_counts-cell_type-', group_name, '.png')),
