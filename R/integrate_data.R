@@ -12,8 +12,6 @@
 ## https://satijalab.org/seurat/articles/pbmc3k_tutorial.html
 ## https://www.10xgenomics.com/analysis-guides/common-considerations-for-quality-control-filters-for-single-cell-rna-seq-data
 
-## TODO: filter genes with 50 cells, undo the seurat_obj_subset
-
 wd = dirname(this.path::here())  # wd = '~/github/R/seaFish'
 suppressPackageStartupMessages(library('Seurat'))
 library("ggplot2")
@@ -198,7 +196,7 @@ for (group_name in names(config)) {
 
     features_list <- SelectIntegrationFeatures(object.list = expr_mtxs, nfeatures = 2000)
     anchors <- FindIntegrationAnchors(object.list = expr_mtxs, anchor.features = features_list)
-    seurat_obj <- IntegrateData(anchorset = anchors)  # r.pca runs faster?
+    seurat_obj <- IntegrateData(anchorset = anchors)  # reduction = "pca" may run faster?
     DefaultAssay(seurat_obj) <- "integrated"
 
     draw_qc_plots(
@@ -235,30 +233,6 @@ for (group_name in names(config)) {
     seurat_obj$cell_type <- predictions[['labels']]
     Idents(seurat_obj) <- seurat_obj$cell_type
 
-    # export predictions as RData
-    filepath=file.path(wd, output_dir, 'rdata', paste0('integrated-', group_name, '.RData'))
-    if (!troubleshooting) {
-        if (!dir.exists(dirname(filepath))) { dir.create(dirname(filepath), recursive=TRUE) }
-        save(seurat_obj, file=filepath)
-    }
-
-    # import::from(file.path(wd, 'R', 'tools', 'file_io.R'),
-    #     'load_rdata', .character_only=TRUE) 
-    # seurat_obj <- load_rdata(
-    #     filepath=file.path(wd, output_dir, 'integrated', paste0(group_name,'.RData'))
-    # )
-
-
-    # ----------------------------------------------------------------------
-    # Plot
-
-    plot_scatter(seurat_obj, color='cell_type')
-    if (!troubleshooting) {
-        savefig(file.path(wd, figures_dir, 'integrated', group_name, 'qc',
-                          paste0('scatter-features_vs_counts-cell_type-', group_name, '.png')),
-        troubleshooting=troubleshooting)
-    }
-
     draw_predictions(
         predictions,
         dirpath=file.path(wd, figures_dir, 'integrated', group_name, 'clustering'),
@@ -269,7 +243,32 @@ for (group_name in names(config)) {
 
 
     # ----------------------------------------------------------------------
-    # Gene of Interest
+    # Save Data
+
+    # seurat_obj
+    filepath=file.path(wd, output_dir, 'rdata', paste0('integrated-', group_name, '.RData'))
+    if (!troubleshooting) {
+        if (!dir.exists(dirname(filepath))) { dir.create(dirname(filepath), recursive=TRUE) }
+        save(seurat_obj, file=filepath)
+    }
+
+    # expression csv
+    cell_counts <- compute_cell_counts(seurat_obj, gene=gene, ident='cell_type')
+    filepath=file.path(wd, output_dir, 'expression',
+        paste0(group_name, '-cell_type-', tolower(gene), '.csv'))
+    if (!troubleshooting) {
+        if ( !dir.exists(dirname(filepath)) ) { dir.create(dirname(filepath), recursive=TRUE) }
+        write.table(cell_counts, file = filepath, row.names = FALSE, sep = ',')
+    }
+
+
+    # ----------------------------------------------------------------------
+    # Plot results
+
+    # filepath=file.path(wd, output_dir, 'rdata', paste0('integrated-', group_name, '.RData'))
+    # import::from(file.path(wd, 'R', 'tools', 'file_io.R'),
+    #     'load_rdata', .character_only=TRUE) 
+    # seurat_obj <- load_rdata(filepath=filepath))
 
     draw_clusters(
         seurat_obj,
@@ -279,58 +278,21 @@ for (group_name in names(config)) {
         showfig=TRUE
     )
 
-    cell_counts <- compute_cell_counts(seurat_obj, gene=gene, ident='cell_type')
-
-    # save as csv
-    filepath=file.path(wd, output_dir, 'expression',
-                       paste0(group_name, '-cell_type-', tolower(gene), '.csv'))
-    if (!troubleshooting) {
-        if ( !dir.exists(dirname(filepath)) ) { dir.create(dirname(filepath), recursive=TRUE) }
-        write.table(cell_counts, file = filepath, row.names = FALSE, sep = ',')
-    }
-
     draw_gene_of_interest(
         seurat_obj,
         gene=gene,
-        dirpath=file.path(wd, figures_dir, 'integrated', group_name, 'expression'),
+        dirpath=file.path(wd, figures_dir, 'integrated', group_name, 'expression', tolower(gene)),
         group_name=group_name,
         troubleshooting=troubleshooting,
         showfig=TRUE
     )
 
-    value_cols = c('num_cells_neg', 'num_cells_pos')
-    cell_counts_long <- cell_counts %>%
-        select(all_of(c('cell_type', value_cols))) %>%
-        pivot_longer(cols=value_cols)
-    cell_counts_long[gene] <- sapply(cell_counts_long['name'], function(x) gsub('num_cells_', '', x))
-    
-    ggplot(data=cell_counts_long[order(-cell_counts_long$value, decreasing = FALSE), ],
-           aes( x=reorder(.data[['cell_type']], .data[['value']], decreasing=TRUE),
-                y=.data[['value']],
-                fill=.data[[gene]] )
-        ) +
-        geom_bar(stat="identity") +
-        labs(title = paste0('Number of ', gene, '+ Cells'),
-             x = NULL,
-             y = "Number of Cells") +
-        scale_x_discrete(guide = guide_axis(angle = 45)) +
-        theme(legend.position = "bottom")
-    
-    if (!troubleshooting) {
-        savefig(file.path(wd, figures_dir, 'integrated', group_name, 'expression', tolower(gene),
-                              paste0('histogram-cell_type-', group_name, '-', tolower(gene), '.png')),
-                height=800, width=1200, dpi=400, troubleshooting=troubleshooting)
-    }
-
-
     # ----------------------------------------------------------------------
     # Plot subset
 
-    # Keep significant populations (percent cells > 3%)
-    num_cells_per_label <- table(predictions['labels'])  # value counts
-    num_cells_per_label <- num_cells_per_label[sort.list(num_cells_per_label, decreasing=TRUE)]  # sort
-    pct_cells_per_label <- num_cells_per_label/sum(num_cells_per_label)
-    populations_to_keep <- names(num_cells_per_label[(pct_cells_per_label > 0.03)])
+    # Keep significant populations (number of cells > 50)
+    num_cells_per_label <- as.data.frame(table(predictions['labels']))  # value counts
+    populations_to_keep <- num_cells_per_label[num_cells_per_label['Freq'] > 50, 'labels']
     seurat_obj_subset <- seurat_obj[, seurat_obj$cell_type %in% populations_to_keep]
 
     draw_qc_plots(
@@ -354,30 +316,31 @@ for (group_name in names(config)) {
         showfig=TRUE
     )
 
-    # gene of interest
-    seurat_obj_subset[[gene]] <- seurat_obj_subset[["RNA"]]@data[gene, ]
-    plot_violin(seurat_obj_subset,
-        cols=c(gene), group.by='cell_type',
-        threshold_data=NULL, alpha=0.5)
-    if (!troubleshooting) {
-        savefig(file.path(wd, figures_dir, 'integrated', group_name, 'expression', tolower(gene),
-                          paste0('violin-integrated-', group_name, '-subset-', tolower(gene), '.png')),
-                height=800, width=800,
-                troubleshooting=troubleshooting)
-    }
+    draw_gene_of_interest(
+        seurat_obj_subset,
+        gene=gene,
+        dirpath=file.path(wd, figures_dir, 'integrated', group_name, 'expression', tolower(gene), 'subset'),
+        prefix='subset-',
+        group_name=group_name,
+        troubleshooting=troubleshooting,
+        showfig=TRUE
+    )
 
 
     # ----------------------------------------------------------------------
-    # Find Top Markers (Filtered data only)
+    # Find Top Markers in subset
 
     Idents(seurat_obj_subset) <- seurat_obj_subset$cell_type
 
+    # Takes a while, especially if there are many groups
     # see: https://satijalab.org/seurat/articles/pbmc3k_tutorial#finding-differentially-expressed-features-cluster-biomarkers
     markers <- FindAllMarkers(
         seurat_obj_subset,
         logfc.threshold = 0.25,  # increased to improve speed; we only need the top 12 markers
         min.pct = 0.1,
-        test.use = "wilcox", only.pos = TRUE)
+        test.use = "wilcox",
+        only.pos = TRUE
+    )
     top_markers <- markers %>%
         group_by(cluster) %>% filter(avg_log2FC > 1) %>%
         slice_head(n = 12) %>% ungroup()

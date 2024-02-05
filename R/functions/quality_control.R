@@ -3,15 +3,16 @@
 import::here(dplyr, 'count')
 import::here(ggplot2, 'ggplot', 'aes', 'geom_point', 'labs')
 import::here(file.path(wd, 'R', 'tools', 'plotting.R'),
-    'savefig', 'plot_scatter', 'plot_violin', 'plot_waterfall', .character_only=TRUE)
+    'savefig', 'plot_scatter', 'plot_bar', 'plot_violin', 'plot_waterfall',
+    .character_only=TRUE)
 
 ## Functions
 ## compute_thresholds
 ## compute_cell_counts
 ## draw_qc_plots
-## draw_predictions
 ## draw_clusters
 ## draw_gene_of_interest
+## draw_predictions
 
 
 #' Compute Thresholds
@@ -98,7 +99,6 @@ draw_qc_plots <- function(
     savefig(file.path(dirpath, paste0('violin-counts_features_mt-', prefix, sample_name, '.png')),
             makedir=TRUE, troubleshooting=troubleshooting)
 
-    
     # ----------------------------------------------------------------------
     # Figure 2. Waterfall Plot of Read Counts
     # See: https://sydneybiox.github.io/SingleCellPlus/qc.html#3_qc1:_waterfall_plot
@@ -138,6 +138,128 @@ draw_qc_plots <- function(
 }
 
 
+#' Draw Clusters
+#' 
+#' @description
+#' Plot UMAPs after clustering
+#' 
+draw_clusters <- function(
+    seurat_obj,
+    dirpath,
+    prefix=NULL,
+    group_name='SeuratProject',
+    split.by=NULL,
+    troubleshooting=FALSE,
+    showfig=FALSE
+) {
+
+    num_samples <- max(length(unname(unlist(unique( seurat_obj[[split.by]] )))), 1)
+
+    # ----------------------------------------------------------------------
+    # Figure 1. Seurat Clusters
+
+    fig <- DimPlot(seurat_obj,
+            reduction = "umap",
+            group.by = "seurat_clusters",
+            split.by = split.by,
+            label = TRUE) +
+        theme(strip.text.x = element_blank(),
+              plot.title = element_text(hjust = 0.5)) +
+        ggtitle("Seurat FindClusters")
+    if (showfig) { print(fig) }
+    savefig(file.path(dirpath, paste0('umap-integrated-unlabeled-', prefix, group_name, '.png')),
+            width=1000*num_samples,
+            makedir=TRUE, troubleshooting=troubleshooting)
+
+    # ----------------------------------------------------------------------
+    # Figure 2. CellDex Clusters
+
+    fig <- DimPlot(seurat_obj,
+            reduction = "umap", 
+            group.by = "cell_type",
+            split.by = split.by,
+            label = TRUE
+        ) + ggtitle(group_name)
+    if (showfig) { print(fig) }
+    savefig(file.path(dirpath, paste0('umap-integrated-labeled-', prefix, group_name, '.png')),
+            width=1000*num_samples, troubleshooting=troubleshooting)
+}
+
+
+#' Draw Gene of Interest
+#' 
+#' @description
+#' 
+draw_gene_of_interest <- function(
+    seurat_obj,
+    gene,
+    dirpath,
+    prefix=NULL,
+    group_name='SeuratProject',
+    troubleshooting=FALSE,
+    showfig=FALSE
+) {
+
+    seurat_obj[[gene]] <- seurat_obj[["RNA"]]@data[gene, ]
+
+    # ----------------------------------------------------------------------
+    # Figure 1. UMAP
+
+    fig <- FeaturePlot(seurat_obj,
+                reduction = "umap", features = gene,
+                pt.size = 0.4, min.cutoff = 'q10', order = TRUE, label = FALSE) +
+        ggtitle( paste(opt[['gene-of-interest']], 'in', group_name) )
+    if (showfig) { print(fig) }
+    savefig(file.path(dirpath, paste0('umap-integrated-', group_name,  '-', prefix, tolower(gene), '.png')),
+            height=800, width=800,
+            troubleshooting=troubleshooting)
+
+    # ----------------------------------------------------------------------
+    # Figure 2. Violin
+
+    fig <- plot_violin(seurat_obj,
+                cols=c(gene), group.by='cell_type',
+                threshold_data=NULL, alpha=0.5)
+    if (showfig) { print(fig) }
+    savefig(file.path(dirpath, paste0('violin-integrated-', group_name, '-', prefix, tolower(gene), '.png')),
+            height=800, width=800,
+            troubleshooting=troubleshooting)
+
+    # ----------------------------------------------------------------------
+    # Figure 3. Ridge without 0
+
+    fig <- RidgePlot(seurat_obj, gene) + xlim(5e-5, NA)
+    if (showfig) { print(fig) }
+    savefig(file.path(dirpath, paste0('ridge-integrated-', group_name, '-', prefix, tolower(gene), '.png')),
+            height=800, width=800,
+            troubleshooting=troubleshooting)
+
+    # ----------------------------------------------------------------------
+    # Figure 4. Bar plot
+
+    cell_counts <- compute_cell_counts(seurat_obj, gene=gene, ident='cell_type')
+
+    value_cols = c('num_cells_neg', 'num_cells_pos')
+    cell_counts_long <- cell_counts %>%
+        select(all_of(c('cell_type', value_cols))) %>%
+        pivot_longer(cols=value_cols)
+    cell_counts_long[gene] <- sapply(cell_counts_long['name'], function(x) gsub('num_cells_', '', x))
+    
+    fig <- plot_bar(
+        cell_counts_long[order(-cell_counts_long$value, decreasing = FALSE), ],
+        x='cell_type',
+        y='value',
+        group.by=gene,  # gene of interest
+        xlabel=NULL,
+        ylabel="Number of Genes",
+        title=paste0('Number of ', gene, '+ Cells')
+    )
+    if (showfig) { print(fig) }   
+    savefig(file.path(dirpath, paste0('histogram-cell_type-', group_name, '-', prefix, tolower(gene), '.png')),
+            height=800, width=1200, dpi=400, troubleshooting=troubleshooting)
+}
+
+
 #' Draw Predictions QC
 #' 
 #' @description
@@ -165,124 +287,18 @@ draw_predictions <- function(
 
     num_cells_per_label <- table(predictions['labels'])
     num_cells_per_label <- num_cells_per_label[sort.list(num_cells_per_label, decreasing=TRUE)]
-    
-    fig <- ggplot(data=data.frame(num_cells_per_label), aes(x=labels, y=Freq)) +
-        geom_bar(stat="identity", fill="steelblue") +
-        labs(title = "Number of Cells Per Label",
-             x = NULL,
-             y = "Number of Cells") +
-        scale_x_discrete(guide = guide_axis(angle = 45))
+
+    plot_bar(
+        data.frame(num_cells_per_label),
+        x='labels',
+        y='Freq',
+        fill='steelblue',
+        group.by=NULL,  # gene of interest
+        xlabel=NULL,
+        ylabel="Number of Cells",
+        title="Number of Cells Per Label"
+    )
     if (showfig) { print(fig) }
     savefig(file.path(dirpath, paste0('histogram-cell_type-', prefix, group_name, '.png')),
             height=800, width=1200, dpi=400, troubleshooting=troubleshooting)
-
-}
-
-
-#' Draw Clusters
-#' 
-#' @description
-#' Plot UMAPs after clustering
-#' 
-draw_clusters <- function(
-    seurat_obj,
-    dirpath,
-    prefix=NULL,
-    group_name='SeuratProject',
-    split.by=NULL,
-    troubleshooting=FALSE,
-    showfig=FALSE
-) {
-
-    num_samples <- max(length(unname(unlist(unique( seurat_obj[[split.by]] )))), 1)
-
-    # ----------------------------------------------------------------------
-    # Figure 1. Seurat FindClusters Result
-
-    fig <- DimPlot(seurat_obj,
-            reduction = "umap",
-            group.by = "seurat_clusters",
-            split.by = split.by,
-            label = TRUE) +
-        theme(strip.text.x = element_blank(),
-              plot.title = element_text(hjust = 0.5)) +
-        ggtitle("Seurat FindClusters")
-    if (showfig) { print(fig) }
-    savefig(file.path(dirpath, paste0('umap-integrated-unlabeled-', prefix, group_name, '.png')),
-            width=1000*num_samples,
-            makedir=TRUE, troubleshooting=troubleshooting)
-
-
-    # ----------------------------------------------------------------------
-    # Figure 2. Plot CellDex labeled clusters
-
-    fig <- DimPlot(seurat_obj,
-            reduction = "umap", 
-            group.by = "cell_type",
-            split.by = split.by,
-            label = TRUE
-        ) + ggtitle(group_name)
-    if (showfig) { print(fig) }
-    savefig(file.path(dirpath, paste0('umap-integrated-labeled-', prefix, group_name, '.png')),
-            width=1000*num_samples, troubleshooting=troubleshooting)
-    
-}
-
-
-#' Draw Gene of Interest
-#' 
-#' @description
-#' 
-draw_gene_of_interest <- function(
-    seurat_obj,
-    gene,
-    dirpath,
-    prefix=NULL,
-    group_name='SeuratProject',
-    troubleshooting=FALSE,
-    showfig=FALSE
-) {
-
-    seurat_obj[[gene]] <- seurat_obj[["RNA"]]@data[gene, ]
-
-    # ----------------------------------------------------------------------
-    # Figure 1. UMAP
-
-    FeaturePlot(seurat_obj,
-                reduction = "umap", features = gene,
-                pt.size = 0.4, min.cutoff = 'q10', order = TRUE, label = FALSE) +
-        ggtitle( paste(opt[['gene-of-interest']], 'in', group_name) )
-    if (!troubleshooting) {
-        savefig(file.path(wd, figures_dir, 'integrated', group_name, 'expression', tolower(gene),
-                          paste0('umap-integrated-', group_name,  '-', prefix, tolower(gene), '.png')),
-                height=800, width=800,
-                troubleshooting=troubleshooting)
-    }
-
-
-    # ----------------------------------------------------------------------
-    # Figure 2. Violin
-
-    plot_violin(seurat_obj,
-                cols=c(gene), group.by='cell_type',
-                threshold_data=NULL, alpha=0.5)
-    if (!troubleshooting) {
-        savefig(file.path(wd, figures_dir, 'integrated', group_name, 'expression', tolower(gene),
-                          paste0('violin-integrated-', group_name, '-', prefix, tolower(gene), '.png')),
-                height=800, width=800,
-                troubleshooting=troubleshooting)
-    }
-
-
-    # ----------------------------------------------------------------------
-    # Figure 3. Ridge without 0
-
-    RidgePlot(seurat_obj, gene) + xlim(5e-5, NA)
-    if (!troubleshooting) {
-        savefig(file.path(wd, figures_dir, 'integrated', group_name, 'expression', tolower(gene),
-                          paste0('ridge-integrated-', group_name, '-', prefix, tolower(gene), '.png')),
-                height=800, width=800,
-                troubleshooting=troubleshooting)
-    }
-
 }
