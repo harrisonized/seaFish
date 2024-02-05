@@ -1,7 +1,7 @@
 ## Get the top markers from celldex data
 ## See: https://bioconductor.org/books/3.12/OSCA/marker-detection.html
 
-wd = dirname(this.path::here())  # wd = '~/github/R/seaFish'
+wd = dirname(dirname(this.path::here()))  # wd = '~/github/R/seaFish'
 library('optparse')
 library('logr')
 import::from(progress, 'progress_bar')

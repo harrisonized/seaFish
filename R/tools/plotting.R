@@ -1,12 +1,12 @@
 wd = dirname(dirname(this.path::here()))
 import::here(rlang, 'sym')
 import::here(ggplot2,
-    'ggplot', 'aes', 'theme', 'labs', 
+    'ggplot', 'aes', 'theme', 'theme_bw', 'labs', 
     'geom_violin', 'geom_boxplot', 'geom_jitter',
-    'geom_point', 'geom_hline', 'geom_segment', 'geom_bar',
+    'geom_point', 'geom_hline', 'geom_vline', 'geom_segment', 'geom_bar',
     'guides', 'guide_axis', 'guide_legend',
     'xlim', 'ylim', 'scale_x_log10', 'scale_y_log10', 'scale_x_discrete',
-    'element_text', 'element_blank')
+    'annotate', 'element_text', 'element_blank')
 import::here(scales, 'trans_breaks', 'trans_format', 'math_format')
 import::here(cowplot, theme_cowplot)
 import::here(patchwork, 'wrap_plots', 'plot_layout')
@@ -18,6 +18,7 @@ import::here(file.path(wd, 'R', 'tools', 'list_tools.R'),
 ## plot_scatter
 ## plot_bar
 ## plot_waterfall
+## plot_volcano
 
 
 #' Plot Violin
@@ -248,6 +249,35 @@ plot_waterfall <- function(
     ) +
     hline +
     guides( color=guide_legend( override.aes=list(shape=c(NA, NA)) ))
+    
+    return(fig)
+}
+
+
+#' Plot Volcano
+#' 
+#' @description
+#' 
+plot_volcano <- function(
+    df,
+    x='avg_log2FC',
+    y='p_val_adj',
+    gene='gene',
+    title="Volcano plot"
+) {
+
+    fig <- ggplot(df,
+        aes(x=.data[['avg_log2FC']], y=-log10(.data[['p_val_adj']]),
+            text=paste("Symbol:", .data[['gene']]))
+    ) +
+        geom_point(size=0.5) +
+        labs(title=title) +
+        theme_bw() +
+        geom_hline(yintercept = -log10(0.01), linetype="longdash", colour="grey", linewidth=1) +
+        geom_vline(xintercept = 1, linetype="longdash", colour="#BE684D", size=1) +
+        geom_vline(xintercept = -1, linetype="longdash", colour="#2C467A", size=1) +
+        annotate("rect", xmin = 1, xmax = 2, ymin = -log10(0.01), ymax = 7.5, alpha=.2, fill="#BE684D") +
+        annotate("rect", xmin = -1, xmax = -2, ymin = -log10(0.01), ymax = 7.5, alpha=.2, fill="#2C467A")
     
     return(fig)
 }
