@@ -1,63 +1,28 @@
 wd = dirname(dirname(this.path::here()))
-import::here(ggplot2, 'ggsave')
-import::here(grid, 'grid.newpage', 'grid.draw')
-import::here(patchwork, 'wrap_plots', 'plot_layout')
-import::here(cowplot, theme_cowplot)
+import::here(rlang, 'sym')
+import::here(ggplot2,
+    'ggplot', 'aes', 'theme', 'labs', 
+    'geom_violin', 'geom_boxplot', 'geom_jitter',
+    'geom_point', 'geom_hline', 'geom_segment', 'geom_bar',
+    'guides', 'guide_axis', 'guide_legend',
+    'xlim', 'ylim', 'scale_x_log10', 'scale_y_log10', 'scale_x_discrete',
+    'element_text', 'element_blank')
 import::here(scales, 'trans_breaks', 'trans_format', 'math_format')
+import::here(cowplot, theme_cowplot)
+import::here(patchwork, 'wrap_plots', 'plot_layout')
 import::here(file.path(wd, 'R', 'tools', 'list_tools.R'),
     'filter_list_for_match', .character_only=TRUE)
 
 ## Functions
-## save_fig
 ## plot_violin
 ## plot_scatter
 ## plot_bar
 ## plot_waterfall
 
 
-#' Save Figure
-#' 
-#' @description Switch case to reduce the number of lines in the main script
-#' 
-savefig <- function(
-    filepath,
-    fig=NULL,
-    height=800, width=1200, dpi=300, units="px", scaling=0.5,
-    makedir=FALSE,
-    troubleshooting=FALSE,
-    lib='ggplot'  # choose: ggplot, grid
-) {
-    if (!troubleshooting) {
-
-        # make directory
-        dirpath <- dirname(filepath)
-        if (makedir && !dir.exists(dirpath)) {
-            dir.create(dirpath, recursive=TRUE)
-        }
-
-        if (lib=='ggplot') {
-            ggsave(
-                filepath,
-                height=height, width=width, dpi=dpi, units=units, scaling=scaling
-            )
-        } else if (lib=='grid') {
-            png(filepath,
-                height=height, width=width, res=dpi, units=units
-            )
-            grid.newpage()
-            grid.draw(fig$gtable)
-            dev.off()
-        } else {
-            warning(paste0("lib='", lib, "' not found"))
-        }
-    }
-}
-
-
 #' Plot Violin
 #' 
-#' @description
-#' Similar to [Seurat::VlnPlot()], but prettier.
+#' @description Similar to [Seurat::VlnPlot()], but prettier.
 #' 
 plot_violin <- function(
     seurat_obj,
@@ -143,8 +108,7 @@ plot_violin <- function(
 
 #' Plot Scatter
 #' 
-#' @description
-#' Make a simple 2D scatterplot
+#' @description Plot a simple 2D scatterplot
 #' 
 plot_scatter <- function(
     df,
@@ -200,7 +164,7 @@ plot_scatter <- function(
 
 #' Plot Bar
 #' 
-#' @description
+#' @description Plot a simple bar plot.
 #' 
 plot_bar <- function(
     df,
@@ -246,8 +210,7 @@ plot_bar <- function(
 
 #' Plot Waterfall
 #' 
-#' @description
-#' Wrapper around plot_scatter
+#' @description Thin wrapper around plot_scatter
 #' 
 #' @references
 #' \href{https://sydneybiox.github.io/SingleCellPlus/qc.html#3_qc1:_waterfall_plot}

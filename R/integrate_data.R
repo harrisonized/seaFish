@@ -1,11 +1,5 @@
 ## Code used to analyze scRNAseq data
-## Integrates the datasets based on the information in config.json
-
-## This script reads in the datasets individually
-## During the preprocessesing step, filter first, ten normalize
-## For the filters, thresholds are adjusted automatically
-## Lower bound: low quality cells
-## Upper bound: potential doublets
+## Integrates the datasets based on groups set in config.json
 
 ## References:
 ## https://satijalab.org/seurat/archive/v4.3/integration_introduction
@@ -14,29 +8,23 @@
 
 wd = dirname(this.path::here())  # wd = '~/github/R/seaFish'
 suppressPackageStartupMessages(library('Seurat'))
-library("ggplot2")
-library('rjson')
-library('zeallot')
+library('zeallot')  # %<-%
 library('optparse')
 library('logr')
 import::from(magrittr, '%>%')
-import::from(tidyr, 'pivot_longer')
-import::from(dplyr, 'group_by', 'ungroup', 'filter', 'top_n', 'slice_head', 'select')
-import::from(DropletUtils, 'barcodeRanks')
-import::from(SingleR, 'SingleR', 'plotScoreHeatmap')
+import::from(rjson, 'fromJSON')
+import::from(dplyr, 'group_by', 'ungroup', 'filter', 'top_n', 'slice_head')
+import::from(SingleR, 'SingleR')
 
-import::from(file.path(wd, 'R', 'tools', 'df_tools.R'),
-    'fillna', .character_only=TRUE)
 import::from(file.path(wd, 'R', 'tools', 'file_io.R'),
-    'read_10x', .character_only=TRUE)
+    'read_10x', 'savefig', .character_only=TRUE)
 import::from(file.path(wd, 'R', 'tools', 'list_tools.R'),
     'multiple_replacement', .character_only=TRUE)
-import::from(file.path(wd, 'R', 'tools', 'plotting.R'),
-    'savefig', 'plot_violin', 'plot_waterfall', 'plot_scatter', .character_only=TRUE)
 import::from(file.path(wd, 'R', 'tools', 'single_cell_tools.R'),
     'celldex_switch', .character_only=TRUE)
-import::from(file.path(wd, 'R', 'functions', 'quality_control.R'),
-    'compute_thresholds', 'compute_cell_counts',
+import::from(file.path(wd, 'R', 'functions', 'computations.R'),
+    'compute_thresholds', 'compute_cell_counts', .character_only=TRUE)
+import::from(file.path(wd, 'R', 'functions', 'draw_plots.R'),
     'draw_qc_plots', 'draw_predictions', 'draw_clusters', 'draw_gene_of_interest',
     .character_only=TRUE)
 
@@ -128,6 +116,10 @@ for (group_name in names(config)) {
             tmp_seurat_obj[["percent.mt"]] <- PercentageFeatureSet(
                 tmp_seurat_obj, pattern = "^mt-"
             )
+
+            # For the filters, thresholds are adjusted automatically
+            # Lower bound: low quality cells
+            # Upper bound: potential doublets
             c(tmp_threshold_data, upper_rna_count,
               upper_rna_feature, upper_pct_mt) %<-% compute_thresholds(
                   tmp_seurat_obj,
@@ -263,12 +255,12 @@ for (group_name in names(config)) {
 
 
     # ----------------------------------------------------------------------
-    # Plot results
+    # Plot Results
 
     # filepath=file.path(wd, output_dir, 'rdata', paste0('integrated-', group_name, '.RData'))
     # import::from(file.path(wd, 'R', 'tools', 'file_io.R'),
     #     'load_rdata', .character_only=TRUE) 
-    # seurat_obj <- load_rdata(filepath=filepath))
+    # seurat_obj <- load_rdata(filepath=filepath)
 
     draw_clusters(
         seurat_obj,
@@ -287,8 +279,9 @@ for (group_name in names(config)) {
         showfig=TRUE
     )
 
+
     # ----------------------------------------------------------------------
-    # Plot subset
+    # Plot Subset
 
     # Keep significant populations (number of cells > 50)
     num_cells_per_label <- as.data.frame(table(predictions['labels']))  # value counts
@@ -345,15 +338,14 @@ for (group_name in names(config)) {
         group_by(cluster) %>% filter(avg_log2FC > 1) %>%
         slice_head(n = 12) %>% ungroup()
 
-    # Plot heatmap
+    # Plot
     seurat_obj_subset <- ScaleData(seurat_obj_subset, verbose = FALSE)  # see: https://github.com/satijalab/seurat/issues/2960
     DoHeatmap(seurat_obj_subset, features = top_markers$gene, label=FALSE, raster=TRUE)
-    if (!troubleshooting) {
-        savefig(file.path(wd, figures_dir, 'integrated', group_name, 'clustering',
-                     paste0('heatmap-top_markers-', group_name, '.png')),
-                height=400*length(populations_to_keep), width=1200, dpi=400,
-                troubleshooting=troubleshooting)
-    }
+    dirpath <- file.path(wd, figures_dir, 'integrated', group_name, 'clustering')
+    savefig(dirpath, paste0('heatmap-top_markers-subset-', group_name, '.png'),
+            height=400*length(populations_to_keep), width=1200, dpi=400,
+            troubleshooting=troubleshooting)
+
 
     log_print(paste("Loop completed in:", difftime(Sys.time(), loop_start_time)))
 }

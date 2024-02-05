@@ -1,79 +1,28 @@
-## Subroutines for the main scripts
+## Functions that draws groups of figures
 
-import::here(dplyr, 'count')
-import::here(ggplot2, 'ggplot', 'aes', 'geom_point', 'labs')
+import::here(magrittr, '%>%')
+import::here(dplyr, 'select')
+import::here(tidyselect, 'all_of')
+import::here(tidyr, 'pivot_longer')
+import::here(Seurat, 'DimPlot', 'FeaturePlot', 'RidgePlot')
+import::here(DropletUtils, 'barcodeRanks')
+import::here(SingleR, 'plotScoreHeatmap')
+import::here(ggplot2, 'ggplot', 'aes',  'theme', 'labs',
+    'xlim', 'ggtitle', 'element_text', 'element_blank')
+
+import::here(file.path(wd, 'R', 'tools', 'file_io.R'),
+    'savefig', .character_only=TRUE)
 import::here(file.path(wd, 'R', 'tools', 'plotting.R'),
-    'savefig', 'plot_scatter', 'plot_bar', 'plot_violin', 'plot_waterfall',
+    'plot_violin', 'plot_scatter', 'plot_waterfall', 'plot_bar', 
     .character_only=TRUE)
+import::here(file.path(wd, 'R', 'functions', 'computations.R'),
+    'compute_cell_counts', .character_only=TRUE)
 
 ## Functions
-## compute_thresholds
-## compute_cell_counts
 ## draw_qc_plots
 ## draw_clusters
 ## draw_gene_of_interest
 ## draw_predictions
-
-
-#' Compute Thresholds
-#'
-compute_thresholds <- function(
-    seurat_obj,
-    sample_name = 'SeruatProject'
-) {
-
-    thresholds <- new.env()  # upper thresholds
-    for (col in c('nCount_RNA', 'nFeature_RNA', 'percent.mt')) {
-        thresholds[[col]]  <- median( unlist(tmp_seurat_obj[[col]]) ) +
-            3*sd( unlist(tmp_seurat_obj[[col]]) )
-    }
-
-    df <- data.frame(
-        sample_name=sample_name,
-        col=c('nCount_RNA', 'nCount_RNA',
-              'nFeature_RNA', 'nFeature_RNA',
-              'percent.mt'),
-        type=c('min_nCount_RNA', 'max_nCount_RNA',
-               'min_nFeature_RNA', 'max_nFeature_RNA',
-               'max_percent.mt'),
-        threshold=c(
-            1000, thresholds[['nCount_RNA']],
-            300, thresholds[['nFeature_RNA']],
-            min(thresholds[['percent.mt']], 5)
-        )
-    )
-    return(
-        list(df,
-            thresholds[['nCount_RNA']],
-            thresholds[['nFeature_RNA']],
-            thresholds[['percent.mt']])
-    )
-}
-
-
-#' Compute Cell Counts
-#'
-compute_cell_counts <- function(seurat_obj, gene, ident='cell_type') {
-
-    seurat_obj[[gene]] <- seurat_obj[["RNA"]]@data[gene, ]
-
-    num_total_cells <- count(seurat_obj@meta.data, .data[[ident]], name='num_cells')
-    num_pos_cells <- count(
-        filter(seurat_obj@meta.data, (.data[[gene]] > 5e-5)),
-        cell_type, name='num_cells')
-    cell_counts <- merge(
-        num_total_cells, num_pos_cells,
-        by = 'cell_type',
-        all.x=TRUE,  # left join
-        suffixes = c("_total", '_pos')
-    )
-    cell_counts <- fillna(cell_counts, cols=c('num_cells_pos'), 0)
-
-    cell_counts['num_cells_neg'] <- cell_counts['num_cells_total'] - cell_counts['num_cells_pos']
-    cell_counts['pct_cells_pos'] <- cell_counts['num_cells_pos'] / cell_counts['num_cells_total']
-
-    return(cell_counts)
-}
 
 
 #' Draw QC plots
@@ -241,8 +190,8 @@ draw_gene_of_interest <- function(
 
     value_cols = c('num_cells_neg', 'num_cells_pos')
     cell_counts_long <- cell_counts %>%
-        select(all_of(c('cell_type', value_cols))) %>%
-        pivot_longer(cols=value_cols)
+        dplyr::select(tidyselect::all_of(c('cell_type', value_cols))) %>%
+        tidyr::pivot_longer(cols=value_cols)
     cell_counts_long[gene] <- sapply(cell_counts_long['name'], function(x) gsub('num_cells_', '', x))
     
     fig <- plot_bar(
