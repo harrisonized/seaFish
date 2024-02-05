@@ -284,8 +284,8 @@ for (group_name in names(config)) {
     # Plot Subset
 
     # Keep significant populations (number of cells > 50)
-    num_cells_per_label <- as.data.frame(table(predictions['labels']))  # value counts
-    populations_to_keep <- num_cells_per_label[num_cells_per_label['Freq'] > 50, 'labels']
+    num_cells_per_label <- as.data.frame(table(seurat_obj$cell_type))  # value counts
+    populations_to_keep <- num_cells_per_label[num_cells_per_label['Freq'] > 50, 'Var1']
     seurat_obj_subset <- seurat_obj[, seurat_obj$cell_type %in% populations_to_keep]
 
     draw_qc_plots(
@@ -304,7 +304,7 @@ for (group_name in names(config)) {
         dirpath=file.path(wd, figures_dir, 'integrated', group_name, 'expression'),
         prefix='subset-',
         group_name=group_name,
-        split.by='sample_name',
+        # split.by='sample_name',
         troubleshooting=troubleshooting,
         showfig=TRUE
     )

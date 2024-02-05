@@ -1,11 +1,11 @@
-## Plots the integrated dataset
-## Includes a dropdown menu to select the dataset and a text box to type in the gene
+## Plots UMAP of labeled on the left, gene-of-interest expression on the right
+## Useful for exploratory data analysis
 
 wd = dirname(this.path::here())  # wd = '~/github/R/seaFish'
-suppressPackageStartupMessages(library('Seurat'))
 library('shiny')
-library('ggplot2')
 library('optparse')
+import::from(ggplot2, ggtitle)
+import::from(Seurat, 'DimPlot', 'FeaturePlot')
 import::from(file.path(wd, 'R', 'tools', 'file_io.R'),
     'load_rdata', .character_only=TRUE)
 
@@ -16,8 +16,8 @@ options(shiny.port = 3838)
 # args
 option_list = list(
     make_option(c("-i", "--input-dir"),
-                default='data/ballesteros-2020/output/integrated',
-                metavar='data/ballesteros-2020/output/integrated',
+                default='data/ballesteros-2020/output/rdata',
+                metavar='data/ballesteros-2020/output/rdata',
                 type="character",
                 help="output of scrnaseq_integrated_analysis.R"),
     
@@ -37,18 +37,23 @@ opt = parse_args(opt_parser)
 
 # user interface elements and layout
 ui <- shinyUI(fluidPage(
+
     titlePanel("scRNAseq Data"),
+
     inputPanel(
-        selectInput("dataset",
-                "Dataset",
-                c("bm", "lung", "pb", 'spleen')
+        selectInput(
+            inputId="dataset",
+            label="Dataset",
+            choices=c("bm", "lung", "pb", 'spleen')
         ),
         selectInput(
             inputId="gene",
             label="Gene Name",
             choices=""
-        ), align="center"
+        ),
+        align="center"
     ),
+
     fluidRow(
         splitLayout(
             cellWidths = c("50%", "50%"),
@@ -62,41 +67,46 @@ ui <- shinyUI(fluidPage(
 # server-side computations
 server <- function(input, output, session) {
 
-    # clusters
-    output$clusters_img <- renderImage({
-        filepath = file.path(
-            wd, opt[['figures-dir']], input$dataset,
-            paste('umap', 'integrated', input$dataset, 'immgen_labeled.png', sep='-')
-        )
-        list(
-            src = filepath,
-            height = "600px", width = "750px"
-        )
-    }, deleteFile = FALSE)
+    # UMAP with cell_type labels
+    output$clusters_img <- renderPlot({
 
-
-    # gene of interest
-    output$gene_fig <- renderPlot({
         seurat_obj <- load_rdata(
-            file.path(wd, opt[['input-dir']],
-            paste0(input$dataset, '.RData'))
+            file.path(wd, opt[['input-dir']], paste0('integrated-', input$dataset, '.RData'))
         )
+
+        num_cells_per_label <- as.data.frame(table(seurat_obj$cell_type))  # value counts
+        populations_to_keep <- num_cells_per_label[num_cells_per_label['Freq'] > 50, 'Var1']
+        seurat_obj_subset <- seurat_obj[, seurat_obj$cell_type %in% populations_to_keep]
+
+        DimPlot(
+            seurat_obj_subset,
+            reduction = "umap", 
+            group.by = "cell_type",
+            split.by = NULL,
+            label = TRUE) +
+            ggtitle(input$dataset)
+
+    }, height=480, width=600, scaling=1.5)
+
+    # UMAP with gene of interest
+    output$gene_fig <- renderPlot({
+
+        seurat_obj <- load_rdata(
+            file.path(wd, opt[['input-dir']], paste0('integrated-', input$dataset, '.RData'))
+        )
+
         FeaturePlot(
             seurat_obj,
-            reduction = "umap", 
-            features = input$gene,
-            pt.size = 0.8, 
-            order = TRUE,
-            # split.by = "treatment",
-            min.cutoff = 'q10',
-            label = FALSE
-        ) + ggtitle(input$gene)
-    }, height=600, width=750, scaling=1.5)
+            reduction = "umap", features = input$gene,
+            pt.size = 0.4, min.cutoff = 'q10', order = TRUE, label = FALSE) +
+            ggtitle(input$gene)
 
+    }, height=480, width=600, scaling=1.5)
+
+    # Gene dropdown menu
     gene_names <- reactive({
         seurat_obj <- load_rdata(
-            file.path(wd, opt[['input-dir']],
-            paste0(input$dataset, '.RData'))
+            file.path(wd, opt[['input-dir']], paste0('integrated-', input$dataset, '.RData'))
         )
         sort(unique(seurat_obj@assays[['RNA']]@data@Dimnames[[1]]))
     })

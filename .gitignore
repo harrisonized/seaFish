@@ -3,6 +3,7 @@ data
 figures
 ref
 log
+Rplots.pdf
 renv
 renv.lock
 .Rproj.user
