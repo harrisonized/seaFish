@@ -139,7 +139,9 @@ commands <- as.list(commands)
 # Run in parallel
 
 if (!troubleshooting) {
-    invisible(mclapply(commands, function(x) system(x)))
+    invisible(
+        mclapply(commands, function(x) system(x), mc.cores = min(n_cores, length(commands)))
+    )
 }
 
 
