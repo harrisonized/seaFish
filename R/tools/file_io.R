@@ -2,7 +2,7 @@
 wd = dirname(dirname(this.path::here()))
 import::here(Matrix, 'readMM')
 import::here(readr, 'read_tsv')
-import::here(ggplot2, 'ggsave')
+import::here(ggplot2, 'ggsave', 'last_plot')
 import::here(grid, 'grid.newpage', 'grid.draw')
 import::here(file.path(wd, 'R', 'tools', 'list_tools.R'),
     'filter_list_for_match', .character_only=TRUE)
@@ -110,7 +110,8 @@ savefig <- function(
     height=800, width=1200, dpi=300, units="px", scaling=0.5,
     makedir=FALSE,
     troubleshooting=FALSE,
-    lib='ggplot'  # choose: ggplot, grid
+    lib='ggplot',  # choose: ggplot, grid
+    default_ext = '.png'
 ) {
     if (!troubleshooting) {
 
@@ -120,9 +121,18 @@ savefig <- function(
             dir.create(dirpath, recursive=TRUE)
         }
 
+        # add file extension if not included
+        if (tools::file_ext(filepath)=='') {
+            filepath <- paste0(filepath, default_ext)
+        }
+
         if (lib=='ggplot') {
+            if (!inherits(fig, "ggplot")) {
+                fig <- last_plot()
+            }
             ggsave(
                 filepath,
+                plot=fig,
                 height=height, width=width, dpi=dpi, units=units, scaling=scaling
             )
         } else if (lib=='grid') {
