@@ -113,7 +113,7 @@ plot_scatter <- function(
     fig <- ggplot(df,
               aes(x=.data[[x]], y=.data[[y]],
                   colour=!!colour) ) +
-       geom_point(alpha=alpha, size=point_size) +
+       geom_point(alpha=alpha, size=point_size, na.rm=TRUE) +
        labs(x=xlabel, y=ylabel, title=title) + 
        guide +
        scale_x +
@@ -186,7 +186,7 @@ plot_violin <- function(
                 fill=.data[[group.by]])) +
         geom_violin() +
         boxplot +
-        geom_jitter(size = pt.size, alpha = alpha) +
+        geom_jitter(size = pt.size, alpha = alpha, na.rm=TRUE) +
         segment_plot +
         labs(title = col,
              x = NULL,
@@ -225,7 +225,7 @@ plot_volcano <- function(
         aes(x=.data[['avg_log2FC']], y=-log10(.data[['p_val_adj']]),
             text=paste("Symbol:", .data[['gene']]))
     ) +
-        geom_point(size=0.5) +
+        geom_point(size=0.5, na.rm=TRUE) +
         labs(title=title) +
         theme_bw() +
         geom_hline(yintercept = -log10(0.01), linetype="longdash", colour="grey", linewidth=1) +
