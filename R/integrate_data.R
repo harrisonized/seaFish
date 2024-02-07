@@ -83,17 +83,23 @@ output_dir <- multiple_replacement(opt[['input-dir']], c('input'='output'))
 figures_dir <- multiple_replacement(opt[['input-dir']], c('data'='figures', 'input'='output'))
 
 
+# Start Log
+start_time <- Sys.time()
+log <- log_open(paste0("integrate_data-",
+                       strftime(start_time, format="%Y%m%d_%H%M%S"), '.log'))
+log_print(paste('Script started at:', start_time))
+
+
+# ----------------------------------------------------------------------
+# Main
+
 # Parse config
 config_file <- file.path(wd, opt[['input-dir']], opt[['config']])
 if (file.exists(config_file)) {
-    
     log_print(paste(Sys.time(), 'Reading config...'))
     config <- fromJSON(file=config_file)
-
 } else {
-    
     log_print(paste(Sys.time(), 'Generating config...'))
-    
     group_names <- list.dirs(file.path(wd, opt[['input-dir']]), full.names=FALSE)
     group_names <- group_names[(group_names != '')]  # filter empty
     config <- as.list(setNames(group_names, group_names))
@@ -105,20 +111,10 @@ if (file.exists(config_file)) {
 
 # subset config
 if (opt[['slice']] != '') {
-    config <- config[as.integer(unlist( strsplit(opt[['slice']], split=",") ))]
+    config <- config[ eval(parse( text=paste0('c(', opt[['slice']], ')') )) ]
 }
 
-
-# Start Log
-start_time <- Sys.time()
-log <- log_open(paste0("integrate_data-",
-                       strftime(start_time, format="%Y%m%d_%H%M%S"), '.log'))
-log_print(paste('Script started at:', start_time))
 log_print(paste(Sys.time(), 'Groups found...', paste(names(config), collapse=', ' )))
-
-
-# ----------------------------------------------------------------------
-# Main
 
 for (group_name in names(config)) {
 
@@ -294,8 +290,13 @@ for (group_name in names(config)) {
     # ----------------------------------------------------------------------
     # Save Data
 
+    log_print(paste(Sys.time(), 'Saving Seurat object...'))
+
+    prefix <- ifelse(integrated_label=='integrated', 'integrated-', '')
+
     # seurat_obj
-    filepath=file.path(wd, output_dir, 'rdata', paste0(integrated_label, '-', group_name, '.RData'))
+    filepath=file.path(wd, output_dir, 'rdata',
+        paste0('seurat_obj-', prefix, group_name, '.RData'))
     if (!troubleshooting) {
         if (!dir.exists(dirname(filepath))) { dir.create(dirname(filepath), recursive=TRUE) }
         save(seurat_obj, file=filepath)
@@ -303,8 +304,9 @@ for (group_name in names(config)) {
 
     # expression csv
     cell_counts <- compute_cell_counts(seurat_obj, gene=gene, ident='cell_type')
-    filepath=file.path(wd, output_dir, 'expression',
-        paste0(group_name, '-cell_type-', tolower(gene), '.csv'))
+
+    filepath=file.path(wd, output_dir, 'expression', tolower(gene), integrated_label,
+        paste0('cell_type-', prefix, group_name, '-', tolower(gene), '.csv'))
     if (!troubleshooting) {
         if ( !dir.exists(dirname(filepath)) ) { dir.create(dirname(filepath), recursive=TRUE) }
         write.table(cell_counts, file = filepath, row.names = FALSE, sep = ',')
@@ -313,6 +315,8 @@ for (group_name in names(config)) {
 
     # ----------------------------------------------------------------------
     # Plot Results
+
+    log_print(paste(Sys.time(), 'Plotting full results...'))
 
     # filepath=file.path(wd, output_dir, 'rdata', paste0('integrated-', group_name, '.RData'))
     # import::from(file.path(wd, 'R', 'tools', 'file_io.R'),
@@ -341,6 +345,8 @@ for (group_name in names(config)) {
 
     # ----------------------------------------------------------------------
     # Plot Subset
+
+    log_print(paste(Sys.time(), 'Plotting subset...'))
 
     # Keep significant populations (number of cells > 50)
     num_cells_per_label <- as.data.frame(table(seurat_obj$cell_type))  # value counts
@@ -385,6 +391,8 @@ for (group_name in names(config)) {
 
     # ----------------------------------------------------------------------
     # Find Top Markers in subset
+
+    log_print(paste(Sys.time(), 'Identifying top markers...'))
 
     Idents(seurat_obj_subset) <- seurat_obj_subset$cell_type
 
