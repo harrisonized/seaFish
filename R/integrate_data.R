@@ -186,10 +186,14 @@ for (group_name in names(config)) {
 
     log_print(paste(Sys.time(), 'Integrating data...'))
 
-    features_list <- SelectIntegrationFeatures(object.list = expr_mtxs, nfeatures = 2000)
-    anchors <- FindIntegrationAnchors(object.list = expr_mtxs, anchor.features = features_list)
-    seurat_obj <- IntegrateData(anchorset = anchors)  # reduction = "pca" may run faster?
-    DefaultAssay(seurat_obj) <- "integrated"
+    if (length(expr_mtxs)>1) {
+        features_list <- SelectIntegrationFeatures(object.list = expr_mtxs, nfeatures = 2000)
+        anchors <- FindIntegrationAnchors(object.list = expr_mtxs, anchor.features = features_list)
+        seurat_obj <- IntegrateData(anchorset = anchors)  # reduction = "pca" may run faster?
+        DefaultAssay(seurat_obj) <- "integrated"
+    } else {
+        seurat_obj <- expr_mtxs[[1]]
+    }
 
     draw_qc_plots(
         seurat_obj,
@@ -342,7 +346,7 @@ for (group_name in names(config)) {
     seurat_obj_subset <- ScaleData(seurat_obj_subset, verbose = FALSE)  # see: https://github.com/satijalab/seurat/issues/2960
     DoHeatmap(seurat_obj_subset, features = top_markers$gene, label=FALSE, raster=TRUE)
     dirpath <- file.path(wd, figures_dir, 'integrated', group_name, 'clustering')
-    savefig(dirpath, paste0('heatmap-top_markers-subset-', group_name, '.png'),
+    savefig(file.path(dirpath, paste0('heatmap-top_markers-subset-', group_name, '.png')),
             height=400*length(populations_to_keep), width=1200, dpi=400,
             troubleshooting=troubleshooting)
 
