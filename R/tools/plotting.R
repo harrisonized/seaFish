@@ -14,11 +14,113 @@ import::here(file.path(wd, 'R', 'tools', 'list_tools.R'),
     'filter_list_for_match', .character_only=TRUE)
 
 ## Functions
-## plot_violin
-## plot_scatter
 ## plot_bar
-## plot_waterfall
+## plot_scatter
+## plot_violin
 ## plot_volcano
+## plot_waterfall
+
+
+#' Plot Bar
+#' 
+#' @description Plot a simple bar plot.
+#' 
+plot_bar <- function(
+    df,
+    x='cell_type',
+    y='value',
+    group.by=NULL,  # gene of interest
+    fill=NULL,  # steelblue, overwrites group.by
+    xlabel=NULL,
+    ylabel="Number of Genes",
+    title="Number of Cells",
+    xaxis_angle=45,
+    legend_position='bottom',
+    sort=TRUE
+) {
+
+    # color
+    if (is.null(group.by)) { color <- NULL } else { color <- sym(group.by) }
+    if (is.null(fill)) {
+        bar <- geom_bar(stat="identity")
+    } else {
+        bar <- geom_bar(stat="identity", fill=fill)
+    }
+
+    # plot base
+    if (sort) {
+        base_plot <- ggplot(data=df,
+            aes(x=reorder(.data[[x]], .data[[y]], decreasing=TRUE),
+                y=.data[[y]], fill=!!color ))
+    } else {
+        base_plot <- ggplot(data=df,
+            aes(x=.data[[x]], y=.data[[y]], fill=!!color ))
+    }
+
+    fig <- base_plot +
+        bar +
+        labs(x=xlabel, y=ylabel, title=title) +
+        scale_x_discrete( guide=guide_axis(angle = xaxis_angle) ) +
+        theme(legend.position=legend_position)
+
+    return(fig)
+}
+
+
+#' Plot Scatter
+#' 
+#' @description Plot a simple 2D scatterplot
+#' 
+plot_scatter <- function(
+    df,
+    x='nCount_RNA',
+    y='nFeature_RNA',
+    color='sample_name',  # NULL for no groups
+    xlabel="Read Counts",
+    ylabel="Number of Genes",
+    title="Read Counts vs Sequencing Depth",
+    alpha=0.7,
+    point_size=0.5,
+    log_x=FALSE,
+    log_y=FALSE,
+    legend_large_circle=TRUE
+) {
+
+    # group.by
+    if (is.null(color)) { colour <- NULL } else { colour <- sym(color) }
+
+    # scale axes
+    if (log_x) {
+        scale_x <- scale_x_log10(
+            breaks = trans_breaks("log10", function(x) 10^x),
+            labels = trans_format("log10", math_format(10^.x))
+        )
+    } else { scale_x <- list() }
+    if (log_y) {
+        scale_y <- scale_y_log10(
+            breaks = trans_breaks("log10", function(x) 10^x),
+            labels = trans_format("log10", math_format(10^.x))
+        )
+    } else { scale_y <- list() }
+
+    if (legend_large_circle) {
+        guide <- guides( colour=guide_legend(override.aes=list(size=4L,alpha=1)) )
+    } else {
+        guide <- list()
+    }
+
+    # plot
+    fig <- ggplot(df,
+              aes(x=.data[[x]], y=.data[[y]],
+                  colour=!!colour) ) +
+       geom_point(alpha=alpha, size=point_size) +
+       labs(x=xlabel, y=ylabel, title=title) + 
+       guide +
+       scale_x +
+       scale_y
+
+    return(fig)
+}
 
 
 #' Plot Violin
@@ -107,104 +209,31 @@ plot_violin <- function(
 }
 
 
-#' Plot Scatter
+#' Plot Volcano
 #' 
-#' @description Plot a simple 2D scatterplot
+#' @description
 #' 
-plot_scatter <- function(
+plot_volcano <- function(
     df,
-    x='nCount_RNA',
-    y='nFeature_RNA',
-    color='sample_name',  # NULL for no groups
-    xlabel="Read Counts",
-    ylabel="Number of Genes",
-    title="Read Counts vs Sequencing Depth",
-    alpha=0.7,
-    point_size=0.5,
-    log_x=FALSE,
-    log_y=FALSE,
-    legend_large_circle=TRUE
+    x='avg_log2FC',
+    y='p_val_adj',
+    gene='gene',
+    title="Volcano plot"
 ) {
 
-    # group.by
-    if (is.null(color)) { colour <- NULL } else { colour <- sym(color) }
-
-    # scale axes
-    if (log_x) {
-        scale_x <- scale_x_log10(
-            breaks = trans_breaks("log10", function(x) 10^x),
-            labels = trans_format("log10", math_format(10^.x))
-        )
-    } else { scale_x <- list() }
-    if (log_y) {
-        scale_y <- scale_y_log10(
-            breaks = trans_breaks("log10", function(x) 10^x),
-            labels = trans_format("log10", math_format(10^.x))
-        )
-    } else { scale_y <- list() }
-
-    if (legend_large_circle) {
-        guide <- guides( colour=guide_legend(override.aes=list(size=4L,alpha=1)) )
-    } else {
-        guide <- list()
-    }
-
-    # plot
     fig <- ggplot(df,
-              aes(x=.data[[x]], y=.data[[y]],
-                  colour=!!colour) ) +
-       geom_point(alpha=alpha, size=point_size) +
-       labs(x=xlabel, y=ylabel, title=title) + 
-       guide +
-       scale_x +
-       scale_y
-
-    return(fig)
-}
-
-
-#' Plot Bar
-#' 
-#' @description Plot a simple bar plot.
-#' 
-plot_bar <- function(
-    df,
-    x='cell_type',
-    y='value',
-    group.by=NULL,  # gene of interest
-    fill=NULL,  # steelblue, overwrites group.by
-    xlabel=NULL,
-    ylabel="Number of Genes",
-    title="Number of Cells",
-    xaxis_angle=45,
-    legend_position='bottom',
-    sort=TRUE
-) {
-
-    # color
-    if (is.null(group.by)) { color <- NULL } else { color <- sym(group.by) }
-    if (is.null(fill)) {
-        bar <- geom_bar(stat="identity")
-    } else {
-        bar <- geom_bar(stat="identity", fill=fill)
-    }
-
-    # plot base
-    if (sort) {
-        base_plot <- ggplot(data=df,
-            aes(x=reorder(.data[[x]], .data[[y]], decreasing=TRUE),
-                y=.data[[y]], fill=!!color ))
-    } else {
-        base_plot <- ggplot(data=df,
-            aes(x=.data[[x]], y=.data[[y]], fill=!!color ))
-    }
-
-    fig <- base_plot +
-        bar +
-        labs(x=xlabel, y=ylabel, title=title) +
-        scale_x_discrete( guide=guide_axis(angle = xaxis_angle) ) +
-        theme(legend.position=legend_position)
-
+        aes(x=.data[['avg_log2FC']], y=-log10(.data[['p_val_adj']]),
+            text=paste("Symbol:", .data[['gene']]))
+    ) +
+        geom_point(size=0.5) +
+        labs(title=title) +
+        theme_bw() +
+        geom_hline(yintercept = -log10(0.01), linetype="longdash", colour="grey", linewidth=1) +
+        geom_vline(xintercept = 1, linetype="longdash", colour="#BE684D", size=1) +
+        geom_vline(xintercept = -1, linetype="longdash", colour="#2C467A", size=1) +
+        annotate("rect", xmin = 1, xmax = 2, ymin = -log10(0.01), ymax = 7.5, alpha=.2, fill="#BE684D") +
+        annotate("rect", xmin = -1, xmax = -2, ymin = -log10(0.01), ymax = 7.5, alpha=.2, fill="#2C467A")
+    
     return(fig)
 }
 
@@ -214,7 +243,7 @@ plot_bar <- function(
 #' @description Thin wrapper around plot_scatter
 #' 
 #' @references
-#' \href{https://sydneybiox.github.io/SingleCellPlus/qc.html#3_qc1:_waterfall_plot}
+#' \href{SingleCellPlus - HKU Workshop}{https://sydneybiox.github.io/SingleCellPlus/qc.html#3_qc1:_waterfall_plot}
 #' 
 plot_waterfall <- function(
     barcode_ranks,
@@ -249,35 +278,6 @@ plot_waterfall <- function(
     ) +
     hline +
     guides( color=guide_legend( override.aes=list(shape=c(NA, NA)) ))
-    
-    return(fig)
-}
-
-
-#' Plot Volcano
-#' 
-#' @description
-#' 
-plot_volcano <- function(
-    df,
-    x='avg_log2FC',
-    y='p_val_adj',
-    gene='gene',
-    title="Volcano plot"
-) {
-
-    fig <- ggplot(df,
-        aes(x=.data[['avg_log2FC']], y=-log10(.data[['p_val_adj']]),
-            text=paste("Symbol:", .data[['gene']]))
-    ) +
-        geom_point(size=0.5) +
-        labs(title=title) +
-        theme_bw() +
-        geom_hline(yintercept = -log10(0.01), linetype="longdash", colour="grey", linewidth=1) +
-        geom_vline(xintercept = 1, linetype="longdash", colour="#BE684D", size=1) +
-        geom_vline(xintercept = -1, linetype="longdash", colour="#2C467A", size=1) +
-        annotate("rect", xmin = 1, xmax = 2, ymin = -log10(0.01), ymax = 7.5, alpha=.2, fill="#BE684D") +
-        annotate("rect", xmin = -1, xmax = -2, ymin = -log10(0.01), ymax = 7.5, alpha=.2, fill="#2C467A")
     
     return(fig)
 }

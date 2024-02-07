@@ -7,7 +7,6 @@ import::here(Seurat,
     'ScaleData', 'RunPCA', 'RunUMAP', 'FindNeighbors', 'FindClusters'
 )
 
-
 ## Objects
 ## celldex_switch
 
@@ -100,4 +99,3 @@ counts_from_seurat <- function(
     
     return(df)
 }
-

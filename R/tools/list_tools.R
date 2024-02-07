@@ -1,9 +1,48 @@
 import::here(stringi, 'stri_replace_all_regex')
 
 ## Functions
+## chunker
+## collate
 ## filter_list_for_match
 ## items_in_a_not_b
 ## multiple_replacement
+
+
+#' Chunker
+#' 
+#' @description Group array elements into chunks for iteration
+#' @examples
+#' chunker(c(1, 2, 3, 4, 5, 6), 4)
+#' list(c(1, 2, 3, 4), c(5, 6))
+#' 
+chunker <- function(array_obj, num_elem=2) {
+
+    num_groups = ceiling(length(array_obj)/num_elem)
+    chunked <- vector("list", length = num_groups)
+    for (group_idx in 1:num_groups) {
+        start <- 1+(group_idx-1)*num_elem
+        stop <- ifelse(group_idx*num_elem > length(array_obj), length(array_obj), group_idx*num_elem)
+        chunked[[group_idx]] <- array_obj[start:stop]
+    }
+    return(chunked)
+}
+
+
+#' Collate
+#' 
+#' @description Collate array elements for iteration
+#' @examples
+#' collate(c(1, 2, 3, 4, 5, 6), 4)
+#' list(c(1, 5), c(2, 6), 3, 4)
+#' 
+collate <- function(array_obj, num_groups=2) {
+
+    collated <- vector("list", length = num_groups)
+    for (group_idx in 1:num_groups) {
+        collated[[group_idx]] <- array_obj[seq(group_idx, length(array_obj), num_groups)]
+    }
+    return(collated)
+}
 
 
 #' Find matches based on substring
