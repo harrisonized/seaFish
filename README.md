@@ -28,9 +28,9 @@ These are the available scripts, to be run in the order listed.
 
 | Script Number | Script Name | Description |
 | :--- | ------ | ----------- |
-| 1 | R/cluster_samples.R | Individually clusters each sample in a dataset. |
-| 2 | R/cluster_groups.R  | Clusters groups of samples in a dataset based on the config.json file. |
-| 3 | R/shiny_umap.sh | Takes saved RData and plots them. |
+| 1 | R/integrate\_data.R | Main script for analyzing scRNAseq dataset. A more detailed description is coming |
+| 2 | R/gene\_explorer.R  | Takes saved RData and plots them in a shiny app. |
+| 3 | R/walk\_and\_chew_ghum.R | Parallelize the data analysis. |
 
 
 ## Copyright
