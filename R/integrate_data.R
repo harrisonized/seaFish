@@ -178,33 +178,59 @@ for (group_name in names(config)) {
     }
 
     expr_mtxs <- as.list(expr_mtxs)
-    threshold_data <- do.call("rbind", as.list(threshold_data))
-
-
+    
     # ----------------------------------------------------------------------
     # Integrate Data
 
-    log_print(paste(Sys.time(), 'Integrating data...'))
-
     if (length(expr_mtxs)>1) {
+
+        log_print(paste(Sys.time(), 'Integrating data...'))
+
+        threshold_data <- do.call("rbind", as.list(threshold_data))
+
+        # integrate
         features_list <- SelectIntegrationFeatures(object.list = expr_mtxs, nfeatures = 2000)
         anchors <- FindIntegrationAnchors(object.list = expr_mtxs, anchor.features = features_list)
         seurat_obj <- IntegrateData(anchorset = anchors)  # reduction = "pca" may run faster?
         DefaultAssay(seurat_obj) <- "integrated"
-    } else {
+
+        draw_qc_plots(
+            seurat_obj,
+            dirpath=file.path(wd, figures_dir, "integrated", group_name, 'qc'),
+            prefix='integrated-',
+            sample_name=group_name,
+            group.by='sample_name',
+            threshold_data=threshold_data,
+            troubleshooting=troubleshooting,
+            showfig=TRUE
+        )
+
+        integrated_label <- "integrated"
+        rm(tmp_seurat_obj)
+        rm(expr_mtxs)
+
+    } else if (length(expr_mtxs)==1) {
+
+        log_print(paste(Sys.time(), 'Processing individual dataset...'))
+
         seurat_obj <- expr_mtxs[[1]]
+        integrated_label <- "individual"
+        group_name <- sample_name
+
+        rm(tmp_seurat_obj)
+        rm(expr_mtxs)
+
+    } else {
+
+        log_print(paste(Sys.time(), 'No files processed, skipping loop...'))
+
+        next()
     }
 
-    draw_qc_plots(
-        seurat_obj,
-        dirpath=file.path(wd, figures_dir, 'integrated', group_name, 'qc'),
-        sample_name=group_name,
-        group.by='sample_name',
-        threshold_data=threshold_data,
-        troubleshooting=troubleshooting,
-        showfig=TRUE
-    )
 
+    # ----------------------------------------------------------------------
+    # Label Clusters using SingleR
+    
     # Run the standard workflow
     seurat_obj <- ScaleData(seurat_obj, verbose = FALSE)
     seurat_obj <- RunPCA(seurat_obj, npcs = opt[['ndim']], verbose = FALSE)  # required for RunUMAP
@@ -212,10 +238,6 @@ for (group_name in names(config)) {
     seurat_obj <- FindNeighbors(seurat_obj, reduction = "pca", dims = 1:opt[['ndim']])
     seurat_obj <- FindClusters(seurat_obj, resolution = 0.5)
 
-
-    # ----------------------------------------------------------------------
-    # Label Clusters using SingleR
-    
     log_print(paste(Sys.time(), 'Labeling clusters...'))
 
     DefaultAssay(seurat_obj) <- "RNA"
@@ -231,7 +253,7 @@ for (group_name in names(config)) {
 
     draw_predictions(
         predictions,
-        dirpath=file.path(wd, figures_dir, 'integrated', group_name, 'clustering'),
+        dirpath=file.path(wd, figures_dir, integrated_label, group_name, 'labels'),
         group_name=group_name,
         troubleshooting=troubleshooting,
         showfig=TRUE
@@ -242,7 +264,7 @@ for (group_name in names(config)) {
     # Save Data
 
     # seurat_obj
-    filepath=file.path(wd, output_dir, 'rdata', paste0('integrated-', group_name, '.RData'))
+    filepath=file.path(wd, output_dir, 'rdata', paste0(integrated_label, '-', group_name, '.RData'))
     if (!troubleshooting) {
         if (!dir.exists(dirname(filepath))) { dir.create(dirname(filepath), recursive=TRUE) }
         save(seurat_obj, file=filepath)
@@ -268,7 +290,8 @@ for (group_name in names(config)) {
 
     draw_clusters(
         seurat_obj,
-        dirpath=file.path(wd, figures_dir, 'integrated', group_name, 'expression'),
+        dirpath=file.path(wd, figures_dir, integrated_label, group_name, 'expression'),
+        prefix=ifelse(integrated_label=='integrated', 'integrated-', ''),
         group_name=group_name,
         troubleshooting=troubleshooting,
         showfig=TRUE
@@ -277,7 +300,8 @@ for (group_name in names(config)) {
     draw_gene_of_interest(
         seurat_obj,
         gene=gene,
-        dirpath=file.path(wd, figures_dir, 'integrated', group_name, 'expression', tolower(gene)),
+        dirpath=file.path(wd, figures_dir, integrated_label, group_name, 'expression', tolower(gene)),
+        prefix=ifelse(integrated_label=='integrated', 'integrated-', ''),
         group_name=group_name,
         troubleshooting=troubleshooting,
         showfig=TRUE
@@ -294,8 +318,9 @@ for (group_name in names(config)) {
 
     draw_qc_plots(
         seurat_obj_subset,
-        dirpath=file.path(wd, figures_dir, 'integrated', group_name, 'qc', 'subset'),
-        prefix='subset-',
+        dirpath=file.path(wd, figures_dir, integrated_label, group_name, 'qc', 'subset'),
+        prefix=ifelse(integrated_label=='integrated', 'integrated-', ''),
+        suffix='-subset',
         sample_name=group_name,
         group.by='cell_type',
         threshold_data=NULL,
@@ -305,8 +330,10 @@ for (group_name in names(config)) {
 
     draw_clusters(
         seurat_obj_subset,
-        dirpath=file.path(wd, figures_dir, 'integrated', group_name, 'expression'),
-        prefix='subset-',
+        dirpath=file.path(wd, figures_dir, integrated_label, group_name, 'expression'),
+        prefix=ifelse(integrated_label=='integrated', 'integrated-', ''),
+        suffix='-subset',
+        celldex_dataset=opt[['celldex']],
         group_name=group_name,
         # split.by='sample_name',
         troubleshooting=troubleshooting,
@@ -316,8 +343,9 @@ for (group_name in names(config)) {
     draw_gene_of_interest(
         seurat_obj_subset,
         gene=gene,
-        dirpath=file.path(wd, figures_dir, 'integrated', group_name, 'expression', tolower(gene), 'subset'),
-        prefix='subset-',
+        dirpath=file.path(wd, figures_dir, integrated_label, group_name, 'expression', tolower(gene), 'subset'),
+        prefix=ifelse(integrated_label=='integrated', 'integrated-', ''),
+        suffix='-subset',
         group_name=group_name,
         troubleshooting=troubleshooting,
         showfig=TRUE
@@ -345,14 +373,15 @@ for (group_name in names(config)) {
     # Plot
     seurat_obj_subset <- ScaleData(seurat_obj_subset, verbose = FALSE)  # see: https://github.com/satijalab/seurat/issues/2960
     DoHeatmap(seurat_obj_subset, features = top_markers$gene, label=FALSE, raster=TRUE)
-    dirpath <- file.path(wd, figures_dir, 'integrated', group_name, 'clustering')
-    savefig(file.path(dirpath, paste0('heatmap-top_markers-subset-', group_name, '.png')),
+    dirpath <- file.path(wd, figures_dir, integrated_label, group_name, 'labels')
+    savefig(file.path(dirpath, paste0('heatmap-top_markers-', group_name, '-subset.png')),
             height=400*length(populations_to_keep), width=1200, dpi=400,
             troubleshooting=troubleshooting)
 
 
     log_print(paste("Loop completed in:", difftime(Sys.time(), loop_start_time)))
 }
+
 
 end_time = Sys.time()
 log_print(paste('Script ended at:', Sys.time()))
