@@ -71,7 +71,7 @@ server <- function(input, output, session) {
     output$clusters_img <- renderPlot({
 
         seurat_obj <- load_rdata(
-            file.path(wd, opt[['input-dir']], paste0('integrated-', input$dataset, '.RData'))
+            file.path(wd, opt[['input-dir']], paste0('seurat_obj-integrated-', input$dataset, '.RData'))
         )
 
         num_cells_per_label <- as.data.frame(table(seurat_obj$cell_type))  # value counts
@@ -92,7 +92,7 @@ server <- function(input, output, session) {
     output$gene_fig <- renderPlot({
 
         seurat_obj <- load_rdata(
-            file.path(wd, opt[['input-dir']], paste0('integrated-', input$dataset, '.RData'))
+            file.path(wd, opt[['input-dir']], paste0('seurat_obj-integrated-', input$dataset, '.RData'))
         )
 
         FeaturePlot(
@@ -106,7 +106,7 @@ server <- function(input, output, session) {
     # Gene dropdown menu
     gene_names <- reactive({
         seurat_obj <- load_rdata(
-            file.path(wd, opt[['input-dir']], paste0('integrated-', input$dataset, '.RData'))
+            file.path(wd, opt[['input-dir']], paste0('seurat_obj-integrated-', input$dataset, '.RData'))
         )
         sort(unique(seurat_obj@assays[['RNA']]@data@Dimnames[[1]]))
     })
