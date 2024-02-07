@@ -1,6 +1,7 @@
 ## Parallelize integrate_data.R
 
 wd = dirname(this.path::here())  # wd = '~/github/R/seaFish'
+library('parallel')
 library('optparse')
 library('logr')
 import::from(rjson, 'fromJSON', 'toJSON')
@@ -53,7 +54,7 @@ option_list = list(
                 metavar="collate", type="character",
                 help="choose from 'collate' or 'chunk'"),
 
-    make_option(c("-n", "--num"), default=2,
+    make_option(c("-n", "--num"), default=4,
                 metavar="4", type="integer",
                 help="enter a number"),
 
@@ -66,18 +67,29 @@ opt <- parse_args(opt_parser)
 troubleshooting <- opt[['troubleshooting']]
 gene <- opt[["gene-of-interest"]]
 
+# Start Log
+start_time <- Sys.time()
+log <- log_open(paste0("walk_and_chew_gum-",
+                       strftime(start_time, format="%Y%m%d_%H%M%S"), '.log'))
+log_print(paste('Script started at:', start_time))
 
+
+# ----------------------------------------------------------------------
+# System
+
+n_cores <- detectCores()
+log_print(paste('Number of cores:', n_cores))
+
+
+# ----------------------------------------------------------------------
 # Parse config
+
 config_file <- file.path(wd, opt[['input-dir']], opt[['config']])
 if (file.exists(config_file)) {
-    
     log_print(paste(Sys.time(), 'Reading config...'))
     config <- fromJSON(file=config_file)
-
 } else {
-    
     log_print(paste(Sys.time(), 'Generating config...'))
-    
     group_names <- list.dirs(file.path(wd, opt[['input-dir']]), full.names=FALSE)
     group_names <- group_names[(group_names != '')]  # filter empty
     config <- as.list(setNames(group_names, group_names))
@@ -96,26 +108,16 @@ if (opt[['method']]=='collate') {
     grouped_idxs <- chunker(idxs, opt[['num']])
 }
 
-# Start Log
-start_time <- Sys.time()
-log <- log_open(paste0("walk_and_chew_gum-",
-                       strftime(start_time, format="%Y%m%d_%H%M%S"), '.log'))
-log_print(paste('Script started at:', start_time))
-log_print(paste(Sys.time(), 'Groups found...', paste(names(config), collapse=', ' )))
-
 
 # ----------------------------------------------------------------------
-# Integrate Data
+# Generate commands
 
+log_print(paste(Sys.time(), 'Groups found...', paste(names(config), collapse=', ' )))
+
+commands <- new.env()
 for (idx in 1:length(grouped_idxs)) {
 
-    if (troubleshooting) {
-        run <- print
-    } else {
-        run <- system
-    }
-
-    run(paste(
+    command <- paste(
         'Rscript R/integrate_data.R',
             '-i', opt[['input-dir']],
             '-o', opt[['output-dir']],
@@ -126,8 +128,20 @@ for (idx in 1:length(grouped_idxs)) {
             '-g', opt[['gene-of-interest']],
             '-s', '"', as.character(paste0(grouped_idxs[idx])), '"',
             ifelse(opt[['troubleshooting']], '-t', '')
-    ))
+    )
+    log_print(command)
+    commands[[as.character(idx)]] <- command
 }
+commands <- as.list(commands)
+
+
+# ----------------------------------------------------------------------
+# Run in parallel
+
+if (!troubleshooting) {
+    invisible(mclapply(commands, function(x) system(x)))
+}
+
 
 end_time = Sys.time()
 log_print(paste('Script ended at:', Sys.time()))

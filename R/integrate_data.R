@@ -91,9 +91,8 @@ log_print(paste('Script started at:', start_time))
 
 
 # ----------------------------------------------------------------------
-# Main
-
 # Parse config
+
 config_file <- file.path(wd, opt[['input-dir']], opt[['config']])
 if (file.exists(config_file)) {
     log_print(paste(Sys.time(), 'Reading config...'))
@@ -109,10 +108,14 @@ if (file.exists(config_file)) {
     }
 }
 
-# subset config
+# subset
 if (opt[['slice']] != '') {
     config <- config[ eval(parse( text=paste0('c(', opt[['slice']], ')') )) ]
 }
+
+
+# ----------------------------------------------------------------------
+# Main
 
 log_print(paste(Sys.time(), 'Groups found...', paste(names(config), collapse=', ' )))
 
