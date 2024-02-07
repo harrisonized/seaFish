@@ -12,7 +12,7 @@ library('zeallot')  # %<-%
 library('optparse')
 library('logr')
 import::from(magrittr, '%>%')
-import::from(rjson, 'fromJSON')
+import::from(rjson, 'fromJSON', 'toJSON')
 import::from(dplyr, 'group_by', 'ungroup', 'filter', 'top_n', 'slice_head')
 import::from(SingleR, 'SingleR')
 
@@ -66,6 +66,10 @@ option_list = list(
                 metavar="Dnase1l1", type="character",
                 help="choose a gene"),
 
+    make_option(c("-s", "--slice"), default="",
+                metavar="", type="character",
+                help="enter comma separated list of indices"),
+
     make_option(c("-t", "--troubleshooting"), default=FALSE, action="store_true",
                 metavar="FALSE", type="logical",
                 help="enable if troubleshooting to prevent overwriting your files")
@@ -73,26 +77,53 @@ option_list = list(
 opt_parser <- OptionParser(option_list=option_list)
 opt <- parse_args(opt_parser)
 troubleshooting <- opt[['troubleshooting']]
+gene <- opt[["gene-of-interest"]]
+
 output_dir <- multiple_replacement(opt[['input-dir']], c('input'='output'))
 figures_dir <- multiple_replacement(opt[['input-dir']], c('data'='figures', 'input'='output'))
-gene <- opt[["gene-of-interest"]]
+
+
+# Parse config
+config_file <- file.path(wd, opt[['input-dir']], opt[['config']])
+if (file.exists(config_file)) {
+    
+    log_print(paste(Sys.time(), 'Reading config...'))
+    config <- fromJSON(file=config_file)
+
+} else {
+    
+    log_print(paste(Sys.time(), 'Generating config...'))
+    
+    group_names <- list.dirs(file.path(wd, opt[['input-dir']]), full.names=FALSE)
+    group_names <- group_names[(group_names != '')]  # filter empty
+    config <- as.list(setNames(group_names, group_names))
+    
+    if (!troubleshooting) {
+        write(toJSON(config), file=config_file)
+    }
+}
+
+# subset config
+if (opt[['slice']] != '') {
+    config <- config[as.integer(unlist( strsplit(opt[['slice']], split=",") ))]
+}
+
 
 # Start Log
 start_time <- Sys.time()
 log <- log_open(paste0("integrate_data-",
                        strftime(start_time, format="%Y%m%d_%H%M%S"), '.log'))
 log_print(paste('Script started at:', start_time))
+log_print(paste(Sys.time(), 'Groups found...', paste(names(config), collapse=', ' )))
 
 
 # ----------------------------------------------------------------------
 # Main
 
-config <- fromJSON(file=file.path(wd, opt[['input-dir']], opt[['config']]))
-
 for (group_name in names(config)) {
 
     loop_start_time <- Sys.time()
-    log_print(paste(loop_start_time, 'Reading Seurat objects...'))
+    log_print(paste(loop_start_time, 'Processing group:', group_name))
 
     sample_names <- config[[group_name]]
     expr_mtxs <- new.env()
