@@ -15,6 +15,7 @@ import::from(magrittr, '%>%')
 import::from(rjson, 'fromJSON', 'toJSON')
 import::from(dplyr, 'group_by', 'ungroup', 'filter', 'top_n', 'slice_head')
 import::from(SingleR, 'SingleR')
+import::from(DropletUtils, 'emptyDrops')
 
 import::from(file.path(wd, 'R', 'tools', 'file_io.R'),
     'read_10x', 'savefig', .character_only=TRUE)
@@ -126,7 +127,7 @@ for (group_name in names(config)) {
     log_print(paste(loop_start_time, 'Processing group:', group_name))
 
     sample_names <- config[[group_name]]
-    expr_mtxs <- new.env()
+    seurat_objs <- new.env()
     threshold_data <- new.env()
 
 
@@ -141,8 +142,41 @@ for (group_name in names(config)) {
             # ----------------------------------------------------------------------
             # Preprocessing
 
-            expr_mtx <- read_10x(file.path(wd, opt[['input-dir']], sample_name))
-            tmp_seurat_obj <- CreateSeuratObject(counts = expr_mtx, min.cells = 3)
+            raw_mtx <- read_10x(file.path(wd, opt[['input-dir']], sample_name))
+            c(num_features, num_cells) %<-% dim(raw_mtx)
+            log_print(paste0(
+                Sys.time(),
+                ' Matrix dims: [', num_features, ' features x ', num_cells, ' cells]'
+            ))
+
+            # Filter empty drops
+            tryCatch({
+                drop_stats <- emptyDrops(raw_mtx)
+                filt_mtx <- raw_mtx[ ,
+                    (drop_stats[['FDR']] <= 0.05) &
+                    (is.na(drop_stats[['FDR']])==FALSE)
+                ]
+                c(num_features, num_cells) %<-% dim(filt_mtx)
+
+                log_print(paste0(
+                    Sys.time(),
+                    ' Filtered Matrix dims: [', num_features, ' features x ', num_cells, ' cells]'
+                ))
+            },
+            error = function(condition) {
+                log_print(paste("Matrix already filtered. Using raw_mtx as filtered."))
+                log_print(paste("Message:", conditionMessage(condition)))
+                filt_mtx <- raw_mtx
+            })
+
+            tmp_seurat_obj <- CreateSeuratObject(counts = filt_mtx, min.cells = 3)
+
+            if (!troubleshooting) {
+                rm(raw_mtx)
+                rm(filt_mtx)
+                gc()
+            }
+
             tmp_seurat_obj$sample_name <- sample_name  # consider using orig.ident
             tmp_seurat_obj[["percent.mt"]] <- PercentageFeatureSet(
                 tmp_seurat_obj, pattern = "^mt-"
@@ -197,7 +231,12 @@ for (group_name in names(config)) {
                     nfeatures = 2000
                 )
 
-            expr_mtxs[[sample_name]] <- tmp_seurat_obj
+            seurat_objs[[sample_name]] <- tmp_seurat_obj
+
+            if (!troubleshooting) {
+                rm(tmp_seurat_obj)
+                gc()
+            }
         },
 
         # pass
@@ -208,25 +247,25 @@ for (group_name in names(config)) {
         })
     }
 
-    expr_mtxs <- as.list(expr_mtxs)
+    seurat_objs <- as.list(seurat_objs)
     
     # ----------------------------------------------------------------------
     # Integrate Data
 
-    if (length(expr_mtxs)>1) {
+    if (length(seurat_objs)>1) {
 
         log_print(paste(Sys.time(), 'Integrating data...'))
 
         threshold_data <- do.call("rbind", as.list(threshold_data))
 
         # integrate
-        features_list <- SelectIntegrationFeatures(object.list = expr_mtxs, nfeatures = 2000)
-        anchors <- FindIntegrationAnchors(object.list = expr_mtxs, anchor.features = features_list)
+        features_list <- SelectIntegrationFeatures(object.list = seurat_objs, nfeatures = 2000)
+        anchors <- FindIntegrationAnchors(object.list = seurat_objs, anchor.features = features_list)
         seurat_obj <- IntegrateData(anchorset = anchors)  # reduction = "pca" may run faster?
         DefaultAssay(seurat_obj) <- "integrated"
 
         draw_qc_plots(
-            seurat_obj,
+            seurat_objs,
             dirpath=file.path(wd, figures_dir, "integrated", group_name, 'qc'),
             prefix='integrated-',
             sample_name=group_name,
@@ -237,19 +276,14 @@ for (group_name in names(config)) {
         )
 
         integrated_label <- "integrated"
-        rm(tmp_seurat_obj)
-        rm(expr_mtxs)
 
-    } else if (length(expr_mtxs)==1) {
+    } else if (length(seurat_objs)==1) {
 
         log_print(paste(Sys.time(), 'Processing individual dataset...'))
 
-        seurat_obj <- expr_mtxs[[1]]
+        seurat_obj <- seurat_objs[[1]]
         integrated_label <- "individual"
         group_name <- sample_name
-
-        rm(tmp_seurat_obj)
-        rm(expr_mtxs)
 
     } else {
 
@@ -257,7 +291,6 @@ for (group_name in names(config)) {
 
         next()
     }
-
 
     # ----------------------------------------------------------------------
     # Label Clusters using SingleR

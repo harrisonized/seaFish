@@ -18,8 +18,8 @@ compute_thresholds <- function(
 
     thresholds <- new.env()  # upper thresholds
     for (col in c('nCount_RNA', 'nFeature_RNA', 'percent.mt')) {
-        thresholds[[col]]  <- median( unlist(tmp_seurat_obj[[col]]) ) +
-            3*sd( unlist(tmp_seurat_obj[[col]]) )
+        thresholds[[col]]  <- median( unlist(seurat_obj[[col]]) ) +
+            3*sd( unlist(seurat_obj[[col]]) )
     }
 
     df <- data.frame(
