@@ -22,12 +22,13 @@ import::from(file.path(wd, 'R', 'tools', 'list_tools.R'),
     'multiple_replacement', .character_only=TRUE)
 import::from(file.path(wd, 'R', 'tools', 'single_cell_tools.R'),
     'celldex_switch', .character_only=TRUE)
+import::from(file.path(wd, 'R', 'tools', 'text_tools.R'),
+    'random_hash', .character_only=TRUE)
 import::from(file.path(wd, 'R', 'functions', 'computations.R'),
     'compute_thresholds', 'compute_cell_counts', .character_only=TRUE)
 import::from(file.path(wd, 'R', 'functions', 'draw_plots.R'),
     'draw_qc_plots', 'draw_predictions', 'draw_clusters', 'draw_gene_of_interest',
     .character_only=TRUE)
-
 
 # ----------------------------------------------------------------------
 # Pre-script settings
@@ -85,7 +86,7 @@ figures_dir <- multiple_replacement(opt[['input-dir']], c('data'='figures', 'inp
 
 # Start Log
 start_time <- Sys.time()
-log <- log_open(paste0("integrate_data-",
+log <- log_open(paste0("integrate_data-", random_hash(), '-',
                        strftime(start_time, format="%Y%m%d_%H%M%S"), '.log'))
 log_print(paste('Script started at:', start_time))
 

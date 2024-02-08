@@ -6,7 +6,7 @@ library('optparse')
 library('logr')
 import::from(rjson, 'fromJSON', 'toJSON')
 import::from(file.path(wd, 'R', 'tools', 'list_tools.R'),
-    'chunker', 'collate', 'multiple_replacement', .character_only=TRUE)
+    'multiple_replacement', 'collate', 'chunker', .character_only=TRUE)
 
 
 # ----------------------------------------------------------------------
@@ -100,12 +100,20 @@ if (file.exists(config_file)) {
 }
 
 # divide data
-idxs <- seq(1, length(config), by=1)
+print(opt[['slice']])
+if (opt[['slice']] != '') {
+    idxs <- eval(parse( text=opt[['slice']] ))
+    idxs <- idxs[idxs <= length(config)]
+} else {
+    idxs <- seq(1, length(config), by=1)
+}
+
 if (opt[['method']]=='collate') {
     grouped_idxs <- collate(idxs, opt[['num']])
 } else if (opt[['method']]=='chunk') {
-    print(idxs)
     grouped_idxs <- chunker(idxs, opt[['num']])
+} else {
+    stop("Choose a valid method: 'collate' or 'chunk'")
 }
 
 
