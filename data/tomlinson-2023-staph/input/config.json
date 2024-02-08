@@ -1,0 +1,4 @@
+{
+	"WT": ["PBS-treated WT", "LAC-infected WT"],
+	"Irg1-null": ["PBS-treated Irg1-null", "LAC-infected Irg1-null"]
+}
