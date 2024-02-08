@@ -14,16 +14,12 @@ import::from(file.path(wd, 'R', 'tools', 'list_tools.R'),
 
 # args
 option_list = list(
-    make_option(c("-i", "--input-dir"),
-                default='data/ballesteros-2020/input',
-                metavar='data/ballesteros-2020/input',
-                type="character",
+    make_option(c("-i", "--input-dir"), default='data/ballesteros-2020/input',
+                metavar='data/ballesteros-2020/input', type="character",
                 help="directory of directories (one up) containing standard 10x files: barcodes.tsv, genes.tsv, and matrix.mtx"),
     
-    make_option(c("-o", "--output-dir"),
-                default='data/ballesteros-2020/output',
-                metavar='data/ballesteros-2020/output',
-                type="character",
+    make_option(c("-o", "--output-dir"), default='output',
+                metavar='output', type="character",
                 help="set the output directory"),
 
     make_option(c("-j", "--config"), default='config.json',
@@ -100,7 +96,6 @@ if (file.exists(config_file)) {
 }
 
 # divide data
-print(opt[['slice']])
 if (opt[['slice']] != '') {
     idxs <- eval(parse( text=opt[['slice']] ))
     idxs <- idxs[idxs <= length(config)]

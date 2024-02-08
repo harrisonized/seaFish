@@ -36,16 +36,13 @@ import::from(file.path(wd, 'R', 'functions', 'draw_plots.R'),
 
 # args
 option_list = list(
-    make_option(c("-i", "--input-dir"),
-                default='data/ballesteros-2020/input',
-                metavar='data/ballesteros-2020/input',
-                type="character",
-                help="directory of directories (one up) containing standard 10x files: barcodes.tsv, genes.tsv, and matrix.mtx"),
+    make_option(c("-i", "--input-dir"), default='data/ballesteros-2020/input',
+                metavar='data/ballesteros-2020/input', type="character",
+                help=paste("directory of directories (one up) containing standard 10x files:",
+                           "barcodes.tsv, genes.tsv, and matrix.mtx")),
     
-    make_option(c("-o", "--output-dir"),
-                default='data/ballesteros-2020/output',
-                metavar='data/ballesteros-2020/output',
-                type="character",
+    make_option(c("-o", "--output-dir"), default='output',
+                metavar='output', type="character",
                 help="set the output directory"),
 
     make_option(c("-j", "--config"), default='config.json',
@@ -81,8 +78,16 @@ opt <- parse_args(opt_parser)
 troubleshooting <- opt[['troubleshooting']]
 gene <- opt[["gene-of-interest"]]
 
-output_dir <- multiple_replacement(opt[['input-dir']], c('input'='output'))
-figures_dir <- multiple_replacement(opt[['input-dir']], c('data'='figures', 'input'='output'))
+# file io
+output_dirname <- opt[['output-dir']]
+output_dir <- ifelse(
+     grepl('input', opt[['input-dir']]),
+     multiple_replacement(opt[['input-dir']], c('input'=output_dirname)),
+     file.path(opt[['input-dir']], 'output')
+)
+figures_dir <- multiple_replacement(
+    opt[['input-dir']], c('data'='figures', 'input'=output_dirname)
+)
 
 
 # Start Log
