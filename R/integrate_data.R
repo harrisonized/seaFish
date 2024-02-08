@@ -393,7 +393,6 @@ for (group_name in names(config)) {
 
         # expression csv
         cell_counts <- compute_cell_counts(seurat_objs[[sample_name]], gene=gene, ident='cell_type')
-        
         filepath=file.path(wd, output_dir, 'expression', tolower(gene), 'individual',
             paste0('cell_type-', sample_name, '-', tolower(gene), '.csv'))
         if (!troubleshooting) {
@@ -405,7 +404,7 @@ for (group_name in names(config)) {
             seurat_objs[[sample_name]],
             dirpath=file.path(wd, figures_dir, 'individual', sample_name, 'expression'),
             prefix='',
-            group_name=group_name,
+            group_name=sample_name,
             troubleshooting=troubleshooting,
             showfig=TRUE
         )
@@ -415,7 +414,7 @@ for (group_name in names(config)) {
             gene=gene,
             dirpath=file.path(wd, figures_dir, 'individual', sample_name, 'expression', tolower(gene)),
             prefix='',
-            group_name=group_name,
+            group_name=sample_name,
             troubleshooting=troubleshooting,
             showfig=TRUE
         )
