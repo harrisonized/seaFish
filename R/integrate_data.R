@@ -166,7 +166,7 @@ for (group_name in names(config)) {
             error = function(condition) {
                 log_print(paste("Matrix already filtered. Using raw_mtx as filtered."))
                 log_print(paste("Message:", conditionMessage(condition)))
-                filt_mtx <- raw_mtx
+                filt_mtx <<- raw_mtx
             })
 
             tmp_seurat_obj <- CreateSeuratObject(counts = filt_mtx, min.cells = 3)
@@ -217,9 +217,8 @@ for (group_name in names(config)) {
             genes_to_keep <- names(num_cells_per_gene[num_cells_per_gene >= 3])
             tmp_seurat_obj <- tmp_seurat_obj[genes_to_keep, ]
 
-
             # Filter barcodes below knee point
-            # Note: Disabled due to the high amount of false negatives
+            # Note: Disabled due to overfiltering of false negatives
             # barcodes_to_keep <- rownames(barcode_data[(barcode_data['total'] >= knee), ])
             # tmp_seurat_obj <- tmp_seurat_obj[, barcodes_to_keep]
 
@@ -243,7 +242,7 @@ for (group_name in names(config)) {
         error = function(condition) {
             log_print(paste("WARNING: SAMPLE", sample_name, "NOT PROCESSED!!!"))
             log_print(paste("Error message: ", conditionMessage(condition)))
-            NULL
+            sample_names <<- sample_names[(sample_names != sample_name)]
         })
     }
 
@@ -265,7 +264,7 @@ for (group_name in names(config)) {
         DefaultAssay(seurat_obj) <- "integrated"
 
         draw_qc_plots(
-            seurat_objs,
+            seurat_obj,
             dirpath=file.path(wd, figures_dir, "integrated", group_name, 'qc'),
             prefix='integrated-',
             sample_name=group_name,
@@ -349,13 +348,12 @@ for (group_name in names(config)) {
         write.table(cell_counts, file = filepath, row.names = FALSE, sep = ',')
     }
 
-
     # ----------------------------------------------------------------------
     # Plot Results
 
-    log_print(paste(Sys.time(), 'Plotting full results...'))
+    log_print(paste(Sys.time(), 'Plotting integrated results...'))
 
-    # filepath=file.path(wd, output_dir, 'rdata', paste0('integrated-', group_name, '.RData'))
+    # filepath=file.path(wd, output_dir, 'rdata', paste0('seurat_obj-integrated-', group_name, '.RData'))
     # import::from(file.path(wd, 'R', 'tools', 'file_io.R'),
     #     'load_rdata', .character_only=TRUE) 
     # seurat_obj <- load_rdata(filepath=filepath)
@@ -379,6 +377,44 @@ for (group_name in names(config)) {
         showfig=TRUE
     )
 
+    # ----------------------------------------------------------------------
+    # Split and Plot
+
+    log_print(paste(Sys.time(), 'Plotting split results...'))
+
+    seurat_objs <- SplitObject(seurat_obj, split.by = "sample_name")
+
+    for (sample_name in sample_names) {
+
+        # expression csv
+        cell_counts <- compute_cell_counts(seurat_objs[[sample_name]], gene=gene, ident='cell_type')
+        
+        filepath=file.path(wd, output_dir, 'expression', tolower(gene), 'individual',
+            paste0('cell_type-', sample_name, '-', tolower(gene), '.csv'))
+        if (!troubleshooting) {
+            if ( !dir.exists(dirname(filepath)) ) { dir.create(dirname(filepath), recursive=TRUE) }
+            write.table(cell_counts, file = filepath, row.names = FALSE, sep = ',')
+        }
+
+        draw_clusters(
+            seurat_objs[[sample_name]],
+            dirpath=file.path(wd, figures_dir, 'individual', sample_name, 'expression'),
+            prefix='',
+            group_name=group_name,
+            troubleshooting=troubleshooting,
+            showfig=TRUE
+        )
+
+        draw_gene_of_interest(
+            seurat_objs[[sample_name]],
+            gene=gene,
+            dirpath=file.path(wd, figures_dir, 'individual', sample_name, 'expression', tolower(gene)),
+            prefix='',
+            group_name=group_name,
+            troubleshooting=troubleshooting,
+            showfig=TRUE
+        )
+    }
 
     # ----------------------------------------------------------------------
     # Plot Subset
@@ -424,7 +460,6 @@ for (group_name in names(config)) {
         troubleshooting=troubleshooting,
         showfig=TRUE
     )
-
 
     # ----------------------------------------------------------------------
     # Find Top Markers in subset

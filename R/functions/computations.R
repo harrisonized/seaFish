@@ -65,6 +65,8 @@ compute_cell_counts <- function(seurat_obj, gene, ident='cell_type') {
 
     cell_counts['num_cells_neg'] <- cell_counts['num_cells_total'] - cell_counts['num_cells_pos']
     cell_counts['pct_cells_pos'] <- cell_counts['num_cells_pos'] / cell_counts['num_cells_total']
-
+    
+    # sort
+    cell_counts <- cell_counts[order(cell_counts[['num_cells_total']], decreasing = TRUE),]
     return(cell_counts)
 }
