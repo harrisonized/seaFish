@@ -161,7 +161,7 @@ draw_clusters <- function(
             split.by = split.by,
             label = TRUE) +
         theme(strip.text.x = element_blank(),
-              plot.title = element_text(hjust = 0.5)) +
+            plot.title = element_text(hjust = 0.5)) +
         ggtitle("Seurat Annotations")
     if (showfig) { print(fig) }
     savefig(file.path(dirpath, paste0('umap-seurat_labeled-', prefix, group_name, suffix, '.png')),
@@ -204,8 +204,8 @@ draw_gene_of_interest <- function(
     # Figure 1. UMAP
 
     fig <- FeaturePlot(seurat_obj,
-                reduction = "umap", features = gene,
-                pt.size = 0.4, min.cutoff = 'q10', order = TRUE, label = FALSE) +
+            reduction = "umap", features = gene,
+            pt.size = 0.4, min.cutoff = 'q10', order = TRUE, label = FALSE) +
         ggtitle( paste(opt[['gene-of-interest']], 'in', group_name) )
     if (showfig) { print(fig) }
     savefig(file.path(dirpath, paste0('umap-', prefix, group_name, suffix, '-', tolower(gene), '.png')),
@@ -216,8 +216,8 @@ draw_gene_of_interest <- function(
     # Figure 2. Violin
 
     fig <- plot_violin(seurat_obj,
-                cols=c(gene), group.by='cell_type',
-                threshold_data=NULL, alpha=0.5)
+            cols=c(gene), group.by='cell_type',
+            threshold_data=NULL, alpha=0.5)
     if (showfig) { print(fig) }
     savefig(file.path(dirpath, paste0('violin-', prefix, group_name, suffix, '-', tolower(gene), '.png')),
             height=800, width=800,

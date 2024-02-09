@@ -30,6 +30,8 @@ import::from(file.path(wd, 'R', 'functions', 'computations.R'),
 import::from(file.path(wd, 'R', 'functions', 'draw_plots.R'),
     'draw_qc_plots', 'draw_predictions', 'draw_clusters', 'draw_gene_of_interest',
     .character_only=TRUE)
+import::from(file.path(wd, 'R', 'functions', 'export_results.R'),
+    'export_results', .character_only=TRUE)
 
 # ----------------------------------------------------------------------
 # Pre-script settings
@@ -131,14 +133,13 @@ for (group_name in names(config)) {
     loop_start_time <- Sys.time()
     log_print(paste(loop_start_time, 'Processing group:', group_name))
 
+    # ----------------------------------------------------------------------
+    # Read Data
+
     sample_names <- config[[group_name]]
     seurat_objs <- new.env()
     threshold_data <- new.env()
-
-
-    # ----------------------------------------------------------------------
-    # Read Data
-    
+   
     for (sample_name in sample_names) {
         log_print(paste(Sys.time(), 'Reading...', sample_name))
 
@@ -252,7 +253,8 @@ for (group_name in names(config)) {
     }
 
     seurat_objs <- as.list(seurat_objs)
-    
+    threshold_data <- do.call("rbind", as.list(threshold_data))
+
     # ----------------------------------------------------------------------
     # Integrate Data
 
@@ -260,31 +262,16 @@ for (group_name in names(config)) {
 
         log_print(paste(Sys.time(), 'Integrating data...'))
 
-        threshold_data <- do.call("rbind", as.list(threshold_data))
-
         # integrate
         features_list <- SelectIntegrationFeatures(object.list = seurat_objs, nfeatures = 2000)
         anchors <- FindIntegrationAnchors(object.list = seurat_objs, anchor.features = features_list)
         seurat_obj <- IntegrateData(anchorset = anchors)  # reduction = "pca" may run faster?
         DefaultAssay(seurat_obj) <- "integrated"
-
-        draw_qc_plots(
-            seurat_obj,
-            dirpath=file.path(wd, figures_dir, "integrated", group_name, 'qc'),
-            prefix='integrated-',
-            sample_name=group_name,
-            group.by='sample_name',
-            threshold_data=threshold_data,
-            troubleshooting=troubleshooting,
-            showfig=TRUE
-        )
-
         integrated_label <- "integrated"
 
     } else if (length(seurat_objs)==1) {
 
         log_print(paste(Sys.time(), 'Processing individual dataset...'))
-
         seurat_obj <- seurat_objs[[1]]
         integrated_label <- "individual"
         group_name <- sample_name
@@ -292,9 +279,9 @@ for (group_name in names(config)) {
     } else {
 
         log_print(paste(Sys.time(), 'No files processed, skipping loop...'))
-
         next()
     }
+
 
     # ----------------------------------------------------------------------
     # Label Clusters using SingleR
@@ -343,82 +330,54 @@ for (group_name in names(config)) {
         save(seurat_obj, file=filepath)
     }
 
-    # expression csv
-    cell_counts <- compute_cell_counts(seurat_obj, gene=gene, ident='cell_type')
-
-    filepath=file.path(wd, output_dir, 'expression', tolower(gene), integrated_label,
-        paste0('cell_type-', prefix, group_name, '-', tolower(gene), '.csv'))
-    if (!troubleshooting) {
-        if ( !dir.exists(dirname(filepath)) ) { dir.create(dirname(filepath), recursive=TRUE) }
-        write.table(cell_counts, file = filepath, row.names = FALSE, sep = ',')
-    }
-
-    # ----------------------------------------------------------------------
-    # Plot Results
-
-    log_print(paste(Sys.time(), 'Plotting integrated results...'))
-
     # filepath=file.path(wd, output_dir, 'rdata', paste0('seurat_obj-integrated-', group_name, '.RData'))
     # import::from(file.path(wd, 'R', 'tools', 'file_io.R'),
     #     'load_rdata', .character_only=TRUE) 
     # seurat_obj <- load_rdata(filepath=filepath)
 
-    draw_clusters(
-        seurat_obj,
-        dirpath=file.path(wd, figures_dir, integrated_label, group_name, 'expression'),
-        prefix=ifelse(integrated_label=='integrated', 'integrated-', ''),
-        group_name=group_name,
-        troubleshooting=troubleshooting,
-        showfig=TRUE
-    )
 
-    draw_gene_of_interest(
+    # ----------------------------------------------------------------------
+    # Export Results
+
+    log_print(paste(Sys.time(), 'Exporting integrated results...'))
+
+    export_results(
         seurat_obj,
-        gene=gene,
-        dirpath=file.path(wd, figures_dir, integrated_label, group_name, 'expression', tolower(gene)),
-        prefix=ifelse(integrated_label=='integrated', 'integrated-', ''),
+        threshold_data=threshold_data,
         group_name=group_name,
-        troubleshooting=troubleshooting,
-        showfig=TRUE
+        gene=gene,
+        output_dir=output_dir,
+        figures_dir=figures_dir,
+        prefix=prefix,
+        integrated_label=integrated_label,
+        export_counts=TRUE,
+        plot_qc=(integrated_label=='integrated'),
+        troubleshooting=troubleshooting
     )
 
     # ----------------------------------------------------------------------
-    # Split and Plot
+    # Export Individual Results
 
-    log_print(paste(Sys.time(), 'Plotting split results...'))
+    log_print(paste(Sys.time(), 'Exporting individual results...'))
 
     seurat_objs <- SplitObject(seurat_obj, split.by = "sample_name")
 
     for (sample_name in sample_names) {
 
-        # expression csv
-        cell_counts <- compute_cell_counts(seurat_objs[[sample_name]], gene=gene, ident='cell_type')
-        filepath=file.path(wd, output_dir, 'expression', tolower(gene), 'individual',
-            paste0('cell_type-', sample_name, '-', tolower(gene), '.csv'))
-        if (!troubleshooting) {
-            if ( !dir.exists(dirname(filepath)) ) { dir.create(dirname(filepath), recursive=TRUE) }
-            write.table(cell_counts, file = filepath, row.names = FALSE, sep = ',')
-        }
-
-        draw_clusters(
+        export_results(
             seurat_objs[[sample_name]],
-            dirpath=file.path(wd, figures_dir, 'individual', sample_name, 'expression'),
-            prefix='',
             group_name=sample_name,
-            troubleshooting=troubleshooting,
-            showfig=TRUE
-        )
-
-        draw_gene_of_interest(
-            seurat_objs[[sample_name]],
             gene=gene,
-            dirpath=file.path(wd, figures_dir, 'individual', sample_name, 'expression', tolower(gene)),
-            prefix='',
-            group_name=sample_name,
+            output_dir=output_dir,
+            figures_dir=figures_dir,
+            prefix=NULL,
+            integrated_label='individual',
+            export_counts=TRUE,
+            plot_qc=FALSE,
             troubleshooting=troubleshooting,
-            showfig=TRUE
         )
     }
+
 
     # ----------------------------------------------------------------------
     # Plot Subset
@@ -430,40 +389,22 @@ for (group_name in names(config)) {
     populations_to_keep <- num_cells_per_label[num_cells_per_label['Freq'] > 50, 'Var1']
     seurat_obj_subset <- seurat_obj[, seurat_obj$cell_type %in% populations_to_keep]
 
-    draw_qc_plots(
+    export_results(
         seurat_obj_subset,
-        dirpath=file.path(wd, figures_dir, integrated_label, group_name, 'qc', 'subset'),
-        prefix=ifelse(integrated_label=='integrated', 'integrated-', ''),
-        suffix='-subset',
-        sample_name=group_name,
-        group.by='cell_type',
-        threshold_data=NULL,
-        troubleshooting=troubleshooting,
-        showfig=TRUE
-    )
-
-    draw_clusters(
-        seurat_obj_subset,
-        dirpath=file.path(wd, figures_dir, integrated_label, group_name, 'expression'),
-        prefix=ifelse(integrated_label=='integrated', 'integrated-', ''),
-        suffix='-subset',
-        celldex_dataset=opt[['celldex']],
         group_name=group_name,
-        # split.by='sample_name',
-        troubleshooting=troubleshooting,
-        showfig=TRUE
-    )
-
-    draw_gene_of_interest(
-        seurat_obj_subset,
         gene=gene,
-        dirpath=file.path(wd, figures_dir, integrated_label, group_name, 'expression', tolower(gene), 'subset'),
-        prefix=ifelse(integrated_label=='integrated', 'integrated-', ''),
+        output_dir=output_dir,
+        figures_dir=figures_dir,
+        subdir='subset',
+        prefix=prefix,
         suffix='-subset',
-        group_name=group_name,
-        troubleshooting=troubleshooting,
-        showfig=TRUE
+        integrated_label=integrated_label,
+        group.by='cell_type',
+        export_counts=FALSE,
+        plot_qc=TRUE,
+        troubleshooting=troubleshooting
     )
+    
 
     # ----------------------------------------------------------------------
     # Find Top Markers in subset
