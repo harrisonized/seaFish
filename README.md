@@ -28,9 +28,9 @@ These are the available scripts, to be run in the order listed.
 
 | Script Number | Script Name | Description |
 | :--- | ------ | ----------- |
-| 1 | R/integrate\_data.R | Main script for analyzing scRNAseq dataset. A more detailed description is coming |
-| 2 | R/gene\_explorer.R  | Takes saved RData and plots them in a shiny app. |
-| 3 | R/walk\_and\_chew_ghum.R | Parallelize the data analysis. |
+| 1 | R/finding\_nemo.R | Main script for analyzing scRNAseq dataset. A more detailed description is coming |
+| 2 | R/arribada.R | Parallelize the data analysis. |
+| 3 | R/aquarium.R  | Shiny app. Still under development. |
 
 
 ## Copyright

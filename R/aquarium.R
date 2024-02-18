@@ -1,5 +1,6 @@
-## Plots UMAP of labeled on the left, gene-of-interest expression on the right
-## Useful for exploratory data analysis
+## Dashboard that plots the EDA results and allows you to quickly explore your
+## genes of interest. Plots ImmGen-labeled UMAP on the left, expression on the
+## right. Still under development.
 
 wd = dirname(this.path::here())  # wd = '~/github/R/seaFish'
 library('shiny')

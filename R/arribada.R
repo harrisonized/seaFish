@@ -1,4 +1,7 @@
-## Parallelize integrate_data.R
+## Every fall, thousands of sea turtles arrive on the shores of Costa Rica to
+## synchronously lay millions of eggs in an event known as the arribada,
+## Spanish for "arrival by sea." This script is an orchestrator that
+## synchronously runs the other scripts.
 
 wd = dirname(this.path::here())  # wd = '~/github/R/seaFish'
 library('parallel')
@@ -65,7 +68,7 @@ gene <- opt[["gene-of-interest"]]
 
 # Start Log
 start_time <- Sys.time()
-log <- log_open(paste0("walk_and_chew_gum-",
+log <- log_open(paste0("arribada-",
                        strftime(start_time, format="%Y%m%d_%H%M%S"), '.log'))
 log_print(paste('Script started at:', start_time))
 
@@ -121,7 +124,7 @@ commands <- new.env()
 for (idx in 1:length(grouped_idxs)) {
 
     command <- paste(
-        'Rscript R/integrate_data.R',
+        'Rscript R/finding_nemo.R',
             '-i', opt[['input-dir']],
             '-o', opt[['output-dir']],
             '-j', opt[['config']],

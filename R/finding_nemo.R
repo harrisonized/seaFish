@@ -1,6 +1,4 @@
-## Code used to analyze scRNAseq data
-## Integrates the datasets based on groups set in config.json
-
+## Performs exploratory data analysis on scRNAseq data.
 ## References:
 ## https://satijalab.org/seurat/archive/v4.3/integration_introduction
 ## https://satijalab.org/seurat/articles/pbmc3k_tutorial.html
@@ -94,7 +92,7 @@ figures_dir <- multiple_replacement(
 
 # Start Log
 start_time <- Sys.time()
-log <- log_open(paste0("integrate_data-", random_hash(), '-',
+log <- log_open(paste0("finding_nemo-", random_hash(), '-',
                        strftime(start_time, format="%Y%m%d_%H%M%S"), '.log'))
 log_print(paste('Script started at:', start_time))
 
