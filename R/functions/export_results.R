@@ -8,37 +8,35 @@ import::here(file.path(wd, 'R', 'functions', 'draw_plots.R'),
 ## export_results
 
 
-#' Export Results
+#' Export Analysis Results
 #' 
 #' @description
-#' Given a seurat_obj, exports all required data and figures
+#' Given a seurat_obj, exports three groups of figures:
+#' qc plots, umaps of labeled clusters, and gene_of_interest figures
+#' Can also export the raw counts
 #' 
-export_results <- function(
+export_analysis_results <- function(
     seurat_obj,
-    threshold_data=NULL,
-    group_name='orig.ident',
     gene='Dnase1l1',
-    output_dir='data/output',
-    figures_dir='figures/output',
-    subdir='',
-    prefix=NULL,
-    suffix=NULL,
-    integrated_label='integrated',
+    threshold_data=NULL,
     group.by='sample_name',
-    export_counts=TRUE,
+    data_dir='data/output',
+    figures_dir='figures/output',
+    multiplicity='integrated',
+    sample_name='SeuratProject',
+    figures_subdir='',
+    file_basename='SeuratProject',
     plot_qc=TRUE,
-    troubleshooting=FALSE
+    export_counts=TRUE,
+    troubleshooting=FALSE,
+    showfig=FALSE
 ) {
 
-    if (is.null(prefix)) {
-        prefix <- ifelse(integrated_label=='integrated', 'integrated-', '')
-    }
-
+    # gene-of-interest by cell-type csv
     if (export_counts) {
-         # expression csv
         cell_counts <- compute_cell_counts(seurat_obj, gene=gene, ident='cell_type')
-        filepath=file.path(wd, output_dir, 'expression', tolower(gene), integrated_label,
-            paste0('cell_type-', prefix, group_name, '-', tolower(gene), '.csv'))
+        filepath=file.path(wd, data_dir, 'expression', tolower(gene), multiplicity,
+            paste0('cell_type-', file_basename, '-', tolower(gene), '.csv'))
         if (!troubleshooting) {
             if ( !dir.exists(dirname(filepath)) ) { dir.create(dirname(filepath), recursive=TRUE) }
             write.table(cell_counts, file = filepath, row.names = FALSE, sep = ',')
@@ -48,35 +46,31 @@ export_results <- function(
     if (plot_qc) {
         draw_qc_plots(
             seurat_obj,
-            dirpath=file.path(wd, figures_dir, integrated_label, group_name, 'qc', subdir),
-            prefix=prefix,
-            suffix=suffix,
-            sample_name=group_name,
             group.by=group.by,
             threshold_data=threshold_data,
+            dirpath=file.path(wd, figures_dir, multiplicity, sample_name, 'qc', figures_subdir),
+            file_basename=file_basename,
             troubleshooting=troubleshooting,
-            showfig=TRUE
+            showfig=showfig
         )
     }
 
     draw_clusters(
         seurat_obj,
-        dirpath=file.path(wd, figures_dir, integrated_label, group_name, 'expression'),
-        prefix=prefix,
-        suffix=suffix,
-        group_name=group_name,
+        dirpath=file.path(wd, figures_dir, multiplicity, sample_name, 'expression'),
+        file_basename=file_basename,
+        title=sample_name,
         troubleshooting=troubleshooting,
-        showfig=TRUE
+        showfig=showfig
     )
 
     draw_gene_of_interest(
         seurat_obj,
         gene=gene,
-        dirpath=file.path(wd, figures_dir, integrated_label, group_name, 'expression', tolower(gene), subdir),
-        prefix=prefix,
-        suffix=suffix,
-        group_name=group_name,
+        dirpath=file.path(wd, figures_dir, multiplicity, sample_name, 'expression', tolower(gene), figures_subdir),
+        file_basename=file_basename,
+        sample_name=sample_name,
         troubleshooting=troubleshooting,
-        showfig=TRUE
+        showfig=showfig
     )
 }

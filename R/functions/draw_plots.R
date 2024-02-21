@@ -1,4 +1,4 @@
-## Functions that draws groups of figures
+## Functions that draw groups of figures
 
 import::here(magrittr, '%>%')
 import::here(dplyr, 'select')
@@ -20,9 +20,9 @@ import::here(file.path(wd, 'R', 'functions', 'computations.R'),
 
 ## Functions
 ## draw_qc_plots
-## draw_predictions
 ## draw_clusters
 ## draw_gene_of_interest
+## draw_predictions
 
 
 #' Draw QC plots
@@ -31,12 +31,10 @@ import::here(file.path(wd, 'R', 'functions', 'computations.R'),
 #' 
 draw_qc_plots <- function(
     seurat_obj,
-    dirpath,
-    prefix=NULL,
-    suffix=NULL,
-    sample_name='SeuratProject',
     group.by='sample_name',
-    threshold_data = NULL,
+    threshold_data = NULL,  # dataframe
+    dirpath,
+    file_basename='SeuratProject',
     troubleshooting=FALSE,
     showfig=FALSE
 ) {
@@ -46,7 +44,7 @@ draw_qc_plots <- function(
     
     fig <- plot_violin(seurat_obj, group.by=group.by, threshold_data=threshold_data)
     if (showfig) { print(fig) }
-    savefig(file.path(dirpath, paste0('violin-counts_features_mt-', prefix, sample_name, suffix, '.png')),
+    savefig(file.path(dirpath, paste0('violin-counts_features_mt-', file_basename, '.png')),
             makedir=TRUE, troubleshooting=troubleshooting)
 
     # ----------------------------------------------------------------------
@@ -56,7 +54,7 @@ draw_qc_plots <- function(
     barcode_ranks <- barcodeRanks(seurat_obj)
     fig <- plot_waterfall(barcode_ranks)
     if (showfig) { print(fig) }
-    savefig(file.path(dirpath, paste0('waterfall-count_vs_rank-', prefix, sample_name, suffix, '.png')),
+    savefig(file.path(dirpath, paste0('waterfall-count_vs_rank-', file_basename, '.png')),
             troubleshooting=troubleshooting)
 
     # ----------------------------------------------------------------------
@@ -64,7 +62,7 @@ draw_qc_plots <- function(
 
     fig <- plot_scatter(seurat_obj@meta.data, color=group.by)
     if (showfig) { print(fig) }
-    savefig(file.path(dirpath, paste0('scatter-features_vs_counts-', prefix, sample_name, suffix, '.png')),
+    savefig(file.path(dirpath, paste0('scatter-features_vs_counts-', file_basename, '.png')),
             troubleshooting=troubleshooting)
    
     # ----------------------------------------------------------------------
@@ -83,53 +81,8 @@ draw_qc_plots <- function(
         title="Cells Per Gene ( >=2 )",
         point_size=0.2)
     if (showfig) { print(fig) }
-    savefig(file.path(dirpath, paste0('histogram-cells_per_gene-', prefix, sample_name, suffix, '.png')),
+    savefig(file.path(dirpath, paste0('histogram-cells_per_gene-', file_basename, '.png')),
             troubleshooting=troubleshooting)
-}
-
-
-#' Draw Predictions QC
-#' 
-#' @description
-#' 
-draw_predictions <- function(
-    predictions,
-    dirpath,
-    prefix=NULL,
-    suffix=NULL,
-    group_name='SeuratProject',
-    troubleshooting=FALSE,
-    showfig=FALSE
-) {
-
-    # ----------------------------------------------------------------------
-    # Figure 1. Plot CellDex QC Heatmap
-    
-    fig <- plotScoreHeatmap(predictions)
-    if (showfig) { print(fig) }
-    savefig(file.path(dirpath, paste0('heatmap-prediction_score-', prefix, group_name, suffix, '.png')),
-            fig=fig, lib='grid', height=1600, width=2400, dpi=300,
-            makedir=TRUE, troubleshooting=troubleshooting)
-
-    # ----------------------------------------------------------------------
-    # Figure 2. Number of cells per label
-
-    num_cells_per_label <- table(predictions['labels'])
-    num_cells_per_label <- num_cells_per_label[sort.list(num_cells_per_label, decreasing=TRUE)]
-
-    plot_bar(
-        data.frame(num_cells_per_label),
-        x='labels',
-        y='Freq',
-        fill='steelblue',
-        group.by=NULL,  # gene of interest
-        xlabel=NULL,
-        ylabel="Number of Cells",
-        title="Number of Cells Per Label"
-    )
-    if (showfig) { print(fig) }
-    savefig(file.path(dirpath, paste0('histogram-cell_type-', prefix, group_name, suffix, '.png')),
-            height=800, width=1200, dpi=400, troubleshooting=troubleshooting)
 }
 
 
@@ -140,12 +93,11 @@ draw_predictions <- function(
 #' 
 draw_clusters <- function(
     seurat_obj,
-    dirpath,
-    prefix=NULL,
-    suffix=NULL,
     celldex_dataset='ImmGen',
-    group_name='SeuratProject',
     split.by=NULL,
+    dirpath,
+    file_basename='SeuratProject',
+    title='SeuratProject',
     troubleshooting=FALSE,
     showfig=FALSE
 ) {
@@ -162,9 +114,9 @@ draw_clusters <- function(
             label = TRUE) +
         theme(strip.text.x = element_blank(),
             plot.title = element_text(hjust = 0.5)) +
-        ggtitle("Seurat Annotations")
+        ggtitle(title)
     if (showfig) { print(fig) }
-    savefig(file.path(dirpath, paste0('umap-seurat_labeled-', prefix, group_name, suffix, '.png')),
+    savefig(file.path(dirpath, paste0('umap-seurat_labeled-', file_basename, '.png')),
             width=1000*num_samples,
             makedir=TRUE, troubleshooting=troubleshooting)
 
@@ -176,9 +128,9 @@ draw_clusters <- function(
             group.by = "cell_type",
             split.by = split.by,
             label = TRUE
-        ) + ggtitle(group_name)
+        ) + ggtitle(title)
     if (showfig) { print(fig) }
-    savefig(file.path(dirpath, paste0('umap-', tolower(celldex_dataset), '_labeled-', prefix, group_name, suffix, '.png')),
+    savefig(file.path(dirpath, paste0('umap-', tolower(celldex_dataset), '_labeled-', file_basename, '.png')),
             width=1000*num_samples, troubleshooting=troubleshooting)
 }
 
@@ -191,9 +143,8 @@ draw_gene_of_interest <- function(
     seurat_obj,
     gene,
     dirpath,
-    prefix=NULL,
-    suffix=NULL,
-    group_name='SeuratProject',
+    file_basename='SeuratProject',
+    sample_name='SeuratProject',
     troubleshooting=FALSE,
     showfig=FALSE
 ) {
@@ -206,9 +157,9 @@ draw_gene_of_interest <- function(
     fig <- FeaturePlot(seurat_obj,
             reduction = "umap", features = gene,
             pt.size = 0.4, min.cutoff = 'q10', order = TRUE, label = FALSE) +
-        ggtitle( paste(opt[['gene-of-interest']], 'in', group_name) )
+        ggtitle( paste(opt[['gene-of-interest']], 'in', sample_name) )
     if (showfig) { print(fig) }
-    savefig(file.path(dirpath, paste0('umap-', prefix, group_name, suffix, '-', tolower(gene), '.png')),
+    savefig(file.path(dirpath, paste0('umap-', file_basename, '-', tolower(gene), '.png')),
             height=800, width=800,
             troubleshooting=troubleshooting)
 
@@ -219,7 +170,7 @@ draw_gene_of_interest <- function(
             cols=c(gene), group.by='cell_type',
             threshold_data=NULL, alpha=0.5)
     if (showfig) { print(fig) }
-    savefig(file.path(dirpath, paste0('violin-', prefix, group_name, suffix, '-', tolower(gene), '.png')),
+    savefig(file.path(dirpath, paste0('violin-', file_basename, '-', tolower(gene), '.png')),
             height=800, width=800,
             troubleshooting=troubleshooting)
 
@@ -228,7 +179,7 @@ draw_gene_of_interest <- function(
 
     fig <- RidgePlot(seurat_obj, gene) + xlim(5e-5, NA)
     if (showfig) { print(fig) }
-    savefig(file.path(dirpath, paste0('ridge-', prefix, group_name, suffix, '-', tolower(gene), '.png')),
+    savefig(file.path(dirpath, paste0('ridge-', file_basename, '-', tolower(gene), '.png')),
             height=800, width=800,
             troubleshooting=troubleshooting)
 
@@ -253,6 +204,49 @@ draw_gene_of_interest <- function(
         title=paste0('Number of ', gene, '+ Cells')
     )
     if (showfig) { print(fig) }   
-    savefig(file.path(dirpath, paste0('histogram-cell_type-', prefix, group_name, suffix, '-', tolower(gene), '.png')),
+    savefig(file.path(dirpath, paste0('histogram-cell_type-', file_basename, '-', tolower(gene), '.png')),
+            height=800, width=1200, dpi=400, troubleshooting=troubleshooting)
+}
+
+
+#' Draw Predictions QC
+#' 
+#' @description
+#' 
+draw_predictions <- function(
+    predictions,
+    dirpath,
+    file_basename='SeuratProject',
+    troubleshooting=FALSE,
+    showfig=FALSE
+) {
+
+    # ----------------------------------------------------------------------
+    # Figure 1. Plot CellDex QC Heatmap
+    
+    fig <- plotScoreHeatmap(predictions)
+    if (showfig) { print(fig) }
+    savefig(file.path(dirpath, paste0('heatmap-prediction_score-', file_basename, '.png')),
+            fig=fig, lib='grid', height=1600, width=2400, dpi=300,
+            makedir=TRUE, troubleshooting=troubleshooting)
+
+    # ----------------------------------------------------------------------
+    # Figure 2. Number of cells per label
+
+    num_cells_per_label <- table(predictions['labels'])
+    num_cells_per_label <- num_cells_per_label[sort.list(num_cells_per_label, decreasing=TRUE)]
+
+    plot_bar(
+        data.frame(num_cells_per_label),
+        x='labels',
+        y='Freq',
+        fill='steelblue',
+        group.by=NULL,  # gene of interest
+        xlabel=NULL,
+        ylabel="Number of Cells",
+        title="Cell Types Histogram"
+    )
+    if (showfig) { print(fig) }
+    savefig(file.path(dirpath, paste0('histogram-cell_type-', file_basename, '.png')),
             height=800, width=1200, dpi=400, troubleshooting=troubleshooting)
 }

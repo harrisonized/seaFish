@@ -249,9 +249,9 @@ plot_waterfall <- function(
     barcode_ranks,
     x='rank',
     y='total',
-    xlabel="Counts Per Cell",
-    ylabel="Cell Rank",
-    title="Read Counts",
+    xlabel="Barcode Rank",
+    ylabel="UMI Counts",
+    title="Barcode Rank Plot",
     show_thresholds=TRUE
 ) {
 

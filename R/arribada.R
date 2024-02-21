@@ -29,17 +29,15 @@ option_list = list(
                 metavar='config.json', type="character",
                 help="json file containing group information"),
     
-    make_option(c("-d", "--ndim"), default=30,
-                metavar="30", type="integer",
-                help="choose the number of dimensions for the data integration"),
-
     make_option(c("-c", "--celldex"),
                 default='ImmGen', metavar='ImmGen', type="character",
                 help="Choose from: ['ENCODE', 'HPCA', 'DICE', 'ImmGen', 'Monaco', 'MouseRNAseq', 'Hemato']"),
 
     make_option(c("-e", "--ensembl"),  default=FALSE,
                 metavar="FALSE", action="store_true", type="logical",
-                help="Used when querying celldex"),
+                help=paste("Celldex option. Logical scalar indicating whether to convert",
+                           "row names to Ensembl IDs. Genes without a mapping to a",
+                           "non-duplicated Ensembl ID are discarded.")),
 
     make_option(c("-g", "--gene-of-interest"), default="Dnase1l1",
                 metavar="Dnase1l1", type="character",
@@ -128,7 +126,6 @@ for (idx in 1:length(grouped_idxs)) {
             '-i', opt[['input-dir']],
             '-o', opt[['output-dir']],
             '-j', opt[['config']],
-            '-d', opt[['ndim']],
             '-c', opt[['celldex']],
             ifelse(opt[['ensembl']], '-e', ''),
             '-g', opt[['gene-of-interest']],
