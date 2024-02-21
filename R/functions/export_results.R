@@ -5,7 +5,7 @@ import::here(file.path(wd, 'R', 'functions', 'draw_plots.R'),
     .character_only=TRUE)
 
 ## Functions
-## export_results
+## export_analysis_results
 
 
 #' Export Analysis Results
@@ -69,7 +69,6 @@ export_analysis_results <- function(
         gene=gene,
         dirpath=file.path(wd, figures_dir, multiplicity, sample_name, 'expression', tolower(gene), figures_subdir),
         file_basename=file_basename,
-        sample_name=sample_name,
         troubleshooting=troubleshooting,
         showfig=showfig
     )

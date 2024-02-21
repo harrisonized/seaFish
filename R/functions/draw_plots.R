@@ -144,7 +144,6 @@ draw_gene_of_interest <- function(
     gene,
     dirpath,
     file_basename='SeuratProject',
-    sample_name='SeuratProject',
     troubleshooting=FALSE,
     showfig=FALSE
 ) {
@@ -157,7 +156,7 @@ draw_gene_of_interest <- function(
     fig <- FeaturePlot(seurat_obj,
             reduction = "umap", features = gene,
             pt.size = 0.4, min.cutoff = 'q10', order = TRUE, label = FALSE) +
-        ggtitle( paste(opt[['gene-of-interest']], 'in', sample_name) )
+        ggtitle( opt[['gene-of-interest']] )
     if (showfig) { print(fig) }
     savefig(file.path(dirpath, paste0('umap-', file_basename, '-', tolower(gene), '.png')),
             height=800, width=800,
@@ -244,7 +243,7 @@ draw_predictions <- function(
         group.by=NULL,  # gene of interest
         xlabel=NULL,
         ylabel="Number of Cells",
-        title="Cell Types Histogram"
+        title="Histogram of Cell Types"
     )
     if (showfig) { print(fig) }
     savefig(file.path(dirpath, paste0('histogram-cell_type-', file_basename, '.png')),

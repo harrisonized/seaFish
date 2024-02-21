@@ -338,6 +338,7 @@ for (group_name in names(config)) {
 
     log_print(paste(Sys.time(), 'Exporting integrated results...'))
 
+    # draw qc plots, clusters, and gene of interest
     export_analysis_results(
         seurat_obj,
         gene=gene,
@@ -395,7 +396,7 @@ for (group_name in names(config)) {
         group.by='cell_type',
         data_dir=output_dir,
         figures_dir=figures_dir,
-        multiplicity='integrated',
+        multiplicity=multiplicity,
         sample_name=group_name,
         figures_subdir='subset',
         file_basename=paste0(prefix, group_name, '-subset'),
