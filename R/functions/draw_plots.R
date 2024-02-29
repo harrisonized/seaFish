@@ -41,7 +41,7 @@ draw_qc_plots <- function(
 
     # ----------------------------------------------------------------------
     # Figure 1. Standard QC Metrics
-    
+
     fig <- plot_violin(seurat_obj, group.by=group.by, threshold_data=threshold_data)
     if (showfig) { print(fig) }
     savefig(file.path(dirpath, paste0('violin-counts_features_mt-', file_basename, '.png')),
@@ -148,13 +148,14 @@ draw_gene_of_interest <- function(
     showfig=FALSE
 ) {
 
-    seurat_obj[[gene]] <- seurat_obj[["RNA"]]@data[gene, ]
+    gene_col <- paste0('log1p_rp10k_', gene)
+    seurat_obj[[gene_col]] <- seurat_obj[["RNA"]]@data[gene, ]
 
     # ----------------------------------------------------------------------
     # Figure 1. UMAP
 
     fig <- FeaturePlot(seurat_obj,
-            reduction = "umap", features = gene,
+            reduction = "umap", features = gene_col,
             pt.size = 0.4, min.cutoff = 'q10', order = TRUE, label = FALSE) +
         ggtitle( opt[['gene-of-interest']] )
     if (showfig) { print(fig) }
@@ -166,8 +167,8 @@ draw_gene_of_interest <- function(
     # Figure 2. Violin
 
     fig <- plot_violin(seurat_obj,
-            cols=c(gene), group.by='cell_type',
-            threshold_data=NULL, alpha=0.5)
+        cols=c(gene_col), group.by='cell_type',
+        threshold_data=NULL, alpha=0.5)
     if (showfig) { print(fig) }
     savefig(file.path(dirpath, paste0('violin-', file_basename, '-', tolower(gene), '.png')),
             height=800, width=800,
@@ -176,7 +177,7 @@ draw_gene_of_interest <- function(
     # ----------------------------------------------------------------------
     # Figure 3. Ridge without 0
 
-    fig <- RidgePlot(seurat_obj, gene) + xlim(5e-5, NA)
+    fig <- print(RidgePlot(seurat_obj, gene_col) + xlim(5e-5, NA))
     if (showfig) { print(fig) }
     savefig(file.path(dirpath, paste0('ridge-', file_basename, '-', tolower(gene), '.png')),
             height=800, width=800,
@@ -189,15 +190,15 @@ draw_gene_of_interest <- function(
 
     value_cols = c('num_cells_neg', 'num_cells_pos')
     cell_counts_long <- cell_counts %>%
-        dplyr::select(tidyselect::all_of(c('cell_type', value_cols))) %>%
+        dplyr::select(all_of(c('cell_type', value_cols))) %>%
         tidyr::pivot_longer(cols=value_cols)
-    cell_counts_long[gene] <- sapply(cell_counts_long['name'], function(x) gsub('num_cells_', '', x))
+    cell_counts_long[gene_col] <- sapply(cell_counts_long['name'], function(x) gsub('num_cells_', '', x))
     
     fig <- plot_bar(
         cell_counts_long[order(-cell_counts_long$value, decreasing = FALSE), ],
         x='cell_type',
         y='value',
-        group.by=gene,  # gene of interest
+        group.by=gene_col,  # gene of interest
         xlabel=NULL,
         ylabel="Number of Genes",
         title=paste0('Number of ', gene, '+ Cells')
