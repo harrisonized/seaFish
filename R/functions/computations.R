@@ -54,7 +54,7 @@ compute_cell_counts <- function(seurat_obj, gene, ident='cell_type') {
 
     num_total_cells <- dplyr::count(seurat_obj@meta.data, .data[[ident]], name='num_cells')
     num_pos_cells <- dplyr::count(
-        filter(seurat_obj@meta.data, (.data[[gene_col]] > 5e-5)),
+        filter(seurat_obj@meta.data, (.data[[gene_col]] > 0)),
         cell_type, name='num_cells')
     cell_counts <- merge(
         num_total_cells, num_pos_cells,
