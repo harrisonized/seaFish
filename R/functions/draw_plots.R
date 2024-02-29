@@ -44,14 +44,8 @@ draw_qc_plots <- function(
 
     fig <- plot_violin(seurat_obj, group.by=group.by, threshold_data=threshold_data)
     if (showfig) { print(fig) }
-    withCallingHandlers({
-        savefig(file.path(dirpath, paste0('violin-counts_features_mt-', file_basename, '.png')),
-                makedir=TRUE, troubleshooting=troubleshooting)
-    }, warning = function(w) {
-        if ( any(grepl("fewer than two data points", w)) ) {
-            invokeRestart("muffleWarning")
-        }
-    })
+    savefig(file.path(dirpath, paste0('violin-counts_features_mt-', file_basename, '.png')),
+            makedir=TRUE, troubleshooting=troubleshooting)
 
     # ----------------------------------------------------------------------
     # Figure 2. Waterfall Plot of Read Counts
@@ -176,15 +170,9 @@ draw_gene_of_interest <- function(
         cols=c(gene_col), group.by='cell_type',
         threshold_data=NULL, alpha=0.5)
     if (showfig) { print(fig) }
-    withCallingHandlers({
-        savefig(file.path(dirpath, paste0('violin-', file_basename, '-', tolower(gene), '.png')),
-                height=800, width=800,
-                troubleshooting=troubleshooting)
-    }, warning = function(w) {
-        if ( any(grepl("fewer than two data points", w)) ) {
-            invokeRestart("muffleWarning")
-        }
-    })
+    savefig(file.path(dirpath, paste0('violin-', file_basename, '-', tolower(gene), '.png')),
+            height=800, width=800,
+            troubleshooting=troubleshooting)
 
 
     # ----------------------------------------------------------------------
@@ -192,16 +180,9 @@ draw_gene_of_interest <- function(
 
     fig <- RidgePlot(seurat_obj, gene_col) + xlim(5e-5, NA)
     if (showfig) { print(fig) }
-    withCallingHandlers({
-        savefig(file.path(dirpath, paste0('ridge-', file_basename, '-', tolower(gene), '.png')),
-                height=800, width=800,
-                troubleshooting=troubleshooting)
-    }, warning = function(w) {
-        if ( any(grepl("rows containing non-finite values", w)) ) {
-            invokeRestart("muffleWarning")
-        }
-    })
-
+    savefig(file.path(dirpath, paste0('ridge-', file_basename, '-', tolower(gene), '.png')),
+            height=800, width=800,
+            troubleshooting=troubleshooting)
 
     # ----------------------------------------------------------------------
     # Figure 4. Bar plot

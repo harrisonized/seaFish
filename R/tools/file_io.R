@@ -11,7 +11,7 @@ import::here(file.path(wd, 'R', 'tools', 'list_tools.R'),
 ## list_files
 ## load_rdata
 ## read_10x
-## save_fig
+## savefig
 
 
 #' List all files with a specific extension
@@ -127,14 +127,21 @@ savefig <- function(
         }
 
         if (lib=='ggplot') {
-            if (!inherits(fig, "ggplot")) {
-                fig <- last_plot()
-            }
-            ggsave(
-                filepath,
-                plot=fig,
-                height=height, width=width, dpi=dpi, units=units, scaling=scaling
-            )
+            if (!inherits(fig, "ggplot")) { fig <- last_plot()}
+
+            withCallingHandlers({
+                ggsave(
+                    filepath,
+                    plot=fig,
+                    height=height, width=width, dpi=dpi, units=units, scaling=scaling
+                )
+            }, warning = function(w) {
+                if ( any(grepl("rows containing non-finite values", w),
+                         grepl("fewer than two data points", w)) ) {
+                    invokeRestart("muffleWarning")
+                }
+            })
+
         } else if (lib=='grid') {
             png(filepath,
                 height=height, width=width, res=dpi, units=units
