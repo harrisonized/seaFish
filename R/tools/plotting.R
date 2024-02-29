@@ -35,6 +35,7 @@ plot_bar <- function(
     ylabel="Number of Genes",
     title="Number of Cells",
     xaxis_angle=45,
+    legend_title=NULL,
     legend_position='bottom',
     sort=TRUE
 ) {
@@ -57,11 +58,19 @@ plot_bar <- function(
             aes(x=.data[[x]], y=.data[[y]], fill=!!color ))
     }
 
+    # legend
+    if (!is.null(legend_title)) {
+        guide <- guides( fill=guide_legend(title=legend_title) )
+    } else {
+        guide <- list()
+    }
+
     fig <- base_plot +
         bar +
         labs(x=xlabel, y=ylabel, title=title) +
         scale_x_discrete( guide=guide_axis(angle = xaxis_angle) ) +
-        theme(legend.position=legend_position)
+        theme(legend.position=legend_position) +
+        guide
 
     return(fig)
 }
@@ -138,12 +147,15 @@ plot_violin <- function(
                       c(500, 10000, 500, 4000, 10))
     ),
     box=TRUE,
-    pt.size = 0.05,
-    alpha = 0.1,
-    angle = 45,
-    title.size = 12,
+    pt.size=0.05,
+    alpha=0.1,
+    angle=45,
+    xlabel=NULL,
+    ylabel=NULL,
+    title=NULL,
+    title.size=12,
     showlegend=FALSE,
-    legend.position = 'right'
+    legend.position='right'
 ) {
     subfigs <- new.env()
     for (i in 1:length(cols)) {
@@ -188,9 +200,9 @@ plot_violin <- function(
         boxplot +
         geom_jitter(size = pt.size, alpha = alpha, na.rm=TRUE) +
         segment_plot +
-        labs(title = col,
-             x = NULL,
-             y = NULL,
+        labs(x = ifelse(!is.null(xlabel), xlabel, col),
+             y = ifelse(!is.null(ylabel), ylabel, col),
+             title = ifelse(!is.null(title), title, col),
              fill=group.by) +
         cowplot::theme_cowplot() +
         theme(plot.title = element_text(size=title.size, hjust=0.5, vjust=0.5),

@@ -49,7 +49,7 @@ compute_thresholds <- function(
 #'
 compute_cell_counts <- function(seurat_obj, gene, ident='cell_type') {
 
-    gene_col <- paste0('log1p_rp10k_', gene)
+    gene_col <- paste0('log1p_cp10k_', gene)
     seurat_obj[[gene_col]] <- seurat_obj[["RNA"]]@data[gene, ]
 
     num_total_cells <- dplyr::count(seurat_obj@meta.data, .data[[ident]], name='num_cells')

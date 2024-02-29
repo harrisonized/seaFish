@@ -148,7 +148,7 @@ draw_gene_of_interest <- function(
     showfig=FALSE
 ) {
 
-    gene_col <- paste0('log1p_rp10k_', gene)
+    gene_col <- paste0('log1p_cp10k_', gene)
     seurat_obj[[gene_col]] <- seurat_obj[["RNA"]]@data[gene, ]
 
     # ----------------------------------------------------------------------
@@ -168,7 +168,11 @@ draw_gene_of_interest <- function(
 
     fig <- plot_violin(seurat_obj,
         cols=c(gene_col), group.by='cell_type',
-        threshold_data=NULL, alpha=0.5)
+        threshold_data=NULL, alpha=0.5,
+        xlabel='',
+        ylabel='LogNorm Expression',
+        title=paste(gene, "Expression")
+    )
     if (showfig) { print(fig) }
     savefig(file.path(dirpath, paste0('violin-', file_basename, '-', tolower(gene), '.png')),
             height=800, width=800,
@@ -178,7 +182,9 @@ draw_gene_of_interest <- function(
     # ----------------------------------------------------------------------
     # Figure 3. Ridge without 0
 
-    fig <- RidgePlot(seurat_obj, gene_col) + xlim(5e-5, NA)
+    fig <- RidgePlot(seurat_obj, gene_col) +
+        xlim(5e-5, NA) +
+        labs(x='LogNorm Expression\n( log(1+CP10K) )', y=NULL, title=paste(gene, "Expression"))
     if (showfig) { print(fig) }
     savefig(file.path(dirpath, paste0('ridge-', file_basename, '-', tolower(gene), '.png')),
             height=800, width=800,
@@ -201,8 +207,9 @@ draw_gene_of_interest <- function(
         y='value',
         group.by=gene_col,  # gene of interest
         xlabel=NULL,
-        ylabel="Number of Genes",
-        title=paste0('Number of ', gene, '+ Cells')
+        ylabel="Number of Cells",
+        title=paste0('Number of ', gene, '+ Cells'),
+        legend_title=gene
     )
     if (showfig) { print(fig) }   
     savefig(file.path(dirpath, paste0('histogram-cell_type-', file_basename, '-', tolower(gene), '.png')),
