@@ -172,7 +172,13 @@ for (group_name in names(config)) {
             })
 
             # Convert to Seurat Object
-            tmp_seurat_obj <- CreateSeuratObject(counts = filt_mtx, min.cells = 3)
+            withCallingHandlers({
+                tmp_seurat_obj <- CreateSeuratObject(counts = filt_mtx, min.cells = 3)
+            }, warning = function(w) {
+                if ( any(grepl("Non-unique features", w)) ) {
+                    invokeRestart("muffleWarning")
+                }
+            })
             if (!troubleshooting) {
                 rm(raw_mtx)
                 rm(filt_mtx)
@@ -260,7 +266,13 @@ for (group_name in names(config)) {
 
         # integrate
         features_list <- SelectIntegrationFeatures(object.list = seurat_objs, nfeatures = 2000)
-        anchors <- FindIntegrationAnchors(object.list = seurat_objs, anchor.features = features_list)
+        withCallingHandlers({
+            anchors <- FindIntegrationAnchors(object.list = seurat_objs, anchor.features = features_list)
+        }, warning = function(w) {
+            if ( any(grepl("Some cell names are duplicated", w)) ) {
+                invokeRestart("muffleWarning")
+            }
+        })
         seurat_obj <- IntegrateData(anchorset = anchors)  # reduction = "pca" may run faster?
         DefaultAssay(seurat_obj) <- "integrated"
         is_integrated <- TRUE
@@ -295,13 +307,21 @@ for (group_name in names(config)) {
     log_print(paste(Sys.time(), 'Labeling clusters...'))
 
     DefaultAssay(seurat_obj) <- "RNA"
-    ref_data <- celldex_switch[[opt$celldex]](ensembl=opt[['ensembl']])
+    withCallingHandlers({
+        ref_data <- celldex_switch[[opt$celldex]](ensembl=opt[['ensembl']])
+    }, warning = function(w) {
+        if ( any(grepl("was built under R version", w)) ) {
+            invokeRestart("muffleWarning")
+        }
+    })
+
     predictions <- SingleR(
         test=as.SingleCellExperiment(seurat_obj),
         assay.type.test=1,
         ref=ref_data,
         labels=ref_data[['label.main']]
     )
+
     seurat_obj$cell_type <- predictions[['labels']]
     Idents(seurat_obj) <- seurat_obj$cell_type
 
