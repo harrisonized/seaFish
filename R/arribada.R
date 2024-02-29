@@ -47,6 +47,10 @@ option_list = list(
                 metavar="", type="character",
                 help="enter comma separated list of indices"),
 
+    make_option(c("-l", "--load-savepoint"), default=FALSE,
+                metavar="FALSE", action="store_true", type="logical",
+                help="use this to skip reading in the data and doing the data integration, use this for testing"),
+
     make_option(c("-m", "--method"), default="collate",
                 metavar="collate", type="character",
                 help="choose from 'collate' or 'chunk'"),
@@ -130,6 +134,7 @@ for (idx in 1:length(grouped_idxs)) {
             ifelse(opt[['ensembl']], '-e', ''),
             '-g', opt[['gene-of-interest']],
             '-s', '"', as.character(paste0(grouped_idxs[idx])), '"',
+            ifelse(opt[['load-savepoint']], '-l', ''),
             ifelse(opt[['troubleshooting']], '-t', '')
     )
     log_print(command)

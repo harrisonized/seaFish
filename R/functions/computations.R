@@ -13,7 +13,7 @@ import::here(file.path(wd, 'R', 'tools', 'df_tools.R'),
 #'
 compute_thresholds <- function(
     seurat_obj,
-    sample_name = 'SeruatProject'
+    sample_name = 'SeuratProject'
 ) {
 
     thresholds <- new.env()  # upper thresholds
@@ -49,12 +49,12 @@ compute_thresholds <- function(
 #'
 compute_cell_counts <- function(seurat_obj, gene, ident='cell_type') {
 
-    gene_col <- paste0('log1p_cp10k_', gene)
-    seurat_obj[[gene_col]] <- seurat_obj[["RNA"]]@data[gene, ]
+    lognorm_gene <- paste0('log1p_cp10k_', gene)
+    seurat_obj[[lognorm_gene]] <- seurat_obj[["RNA"]]@data[gene, ]
 
     num_total_cells <- dplyr::count(seurat_obj@meta.data, .data[[ident]], name='num_cells')
     num_pos_cells <- dplyr::count(
-        filter(seurat_obj@meta.data, (.data[[gene_col]] > 0)),
+        filter(seurat_obj@meta.data, (.data[[lognorm_gene]] > 0)),
         cell_type, name='num_cells')
     cell_counts <- merge(
         num_total_cells, num_pos_cells,

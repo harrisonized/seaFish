@@ -16,7 +16,7 @@ import::from(SingleR, 'SingleR')
 import::from(DropletUtils, 'emptyDrops')
 
 import::from(file.path(wd, 'R', 'tools', 'file_io.R'),
-    'read_10x', 'savefig', .character_only=TRUE)
+    'read_10x', 'savefig', 'load_rdata', .character_only=TRUE)
 import::from(file.path(wd, 'R', 'tools', 'list_tools.R'),
     'multiple_replacement', .character_only=TRUE)
 import::from(file.path(wd, 'R', 'tools', 'single_cell_tools.R'),
@@ -66,6 +66,10 @@ option_list = list(
     make_option(c("-s", "--slice"), default="",
                 metavar="", type="character",
                 help="enter comma separated list of indices"),
+
+    make_option(c("-l", "--load-savepoint"), default=FALSE,
+                metavar="FALSE", action="store_true", type="logical",
+                help="use this to skip reading in the data and doing the data integration, use this for testing"),
 
     make_option(c("-t", "--troubleshooting"), default=FALSE, action="store_true",
                 metavar="FALSE", type="logical",
@@ -125,237 +129,244 @@ if (opt[['slice']] != '') {
 log_print(paste(Sys.time(), 'Groups found...', paste(names(config), collapse=', ' )))
 
 for (group_name in names(config)) {
-
     loop_start_time <- Sys.time()
-    log_print(paste(loop_start_time, 'Processing group:', group_name))
+    
+    if (!opt[['load-savepoint']]) {
 
-    # ----------------------------------------------------------------------
-    # Read Data
+        log_print(paste(loop_start_time, 'Processing group:', group_name))
 
-    sample_names <- config[[group_name]]
-    seurat_objs <- new.env()
-    threshold_data <- new.env()
-   
-    for (sample_name in sample_names) {
-        log_print(paste(Sys.time(), 'Reading...', sample_name))
+        # ----------------------------------------------------------------------
+        # Read Data
 
-        tryCatch({
+        sample_names <- config[[group_name]]
 
-            # ----------------------------------------------------------------------
-            # Preprocessing
+        seurat_objs <- new.env()
+        threshold_data <- new.env()       
+        for (sample_name in sample_names) {
+            log_print(paste(Sys.time(), 'Reading...', sample_name))
 
-            raw_mtx <- read_10x(file.path(wd, opt[['input-dir']], sample_name))
-            c(num_features, num_cells) %<-% dim(raw_mtx)
-            log_print(paste0(
-                Sys.time(),
-                ' Matrix dims: [', num_features, ' features x ', num_cells, ' cells]'
-            ))
-
-            # Filter empty drops
             tryCatch({
-                drop_stats <- emptyDrops(raw_mtx)
-                filt_mtx <- raw_mtx[ ,
-                    (drop_stats[['FDR']] <= 0.05) &
-                    (is.na(drop_stats[['FDR']])==FALSE)
-                ]
-                c(num_features, num_cells) %<-% dim(filt_mtx)
 
+                # ----------------------------------------------------------------------
+                # Preprocessing
+
+                raw_mtx <- read_10x(file.path(wd, opt[['input-dir']], sample_name))
+                c(num_features, num_cells) %<-% dim(raw_mtx)
                 log_print(paste0(
                     Sys.time(),
-                    ' Filtered Matrix dims: [', num_features, ' features x ', num_cells, ' cells]'
+                    ' Matrix dims: [', num_features, ' features x ', num_cells, ' cells]'
                 ))
-            },
-            error = function(condition) {
-                log_print(paste("Matrix already filtered. Using raw_mtx as filtered."))
-                log_print(paste("Message:", conditionMessage(condition)))
-                filt_mtx <<- raw_mtx
-            })
 
-            # Convert to Seurat Object
+                # Filter empty drops
+                tryCatch({
+                    drop_stats <- emptyDrops(raw_mtx)
+                    filt_mtx <- raw_mtx[ ,
+                        (drop_stats[['FDR']] <= 0.05) &
+                        (is.na(drop_stats[['FDR']])==FALSE)
+                    ]
+                    c(num_features, num_cells) %<-% dim(filt_mtx)
+
+                    log_print(paste0(
+                        Sys.time(),
+                        ' Filtered Matrix dims: [', num_features, ' features x ', num_cells, ' cells]'
+                    ))
+                },
+                error = function(condition) {
+                    log_print(paste("Matrix already filtered. Using raw_mtx as filtered."))
+                    log_print(paste("Message:", conditionMessage(condition)))
+                    filt_mtx <<- raw_mtx
+                })
+
+                # Convert to Seurat Object
+                withCallingHandlers({
+                    tmp_seurat_obj <- CreateSeuratObject(counts = filt_mtx, min.cells = 3)
+                }, warning = function(w) {
+                    if ( any(grepl("Non-unique features", w)) ) {
+                        invokeRestart("muffleWarning")
+                    }
+                })
+                if (!troubleshooting) {
+                    rm(raw_mtx)
+                    rm(filt_mtx)
+                    gc()
+                }
+
+                tmp_seurat_obj$sample_name <- sample_name
+                tmp_seurat_obj[["percent.mt"]] <- PercentageFeatureSet(
+                    tmp_seurat_obj, pattern = "^mt-"
+                )
+
+                # For the filters, thresholds are adjusted automatically
+                # Lower bound: low quality cells
+                # Upper bound: potential doublets
+                c(tmp_threshold_data, upper_rna_count,
+                  upper_rna_feature, upper_pct_mt) %<-% compute_thresholds(
+                      tmp_seurat_obj,
+                      sample_name=sample_name
+                )
+                threshold_data[[sample_name]] <- tmp_threshold_data
+
+                draw_qc_plots(
+                    tmp_seurat_obj,
+                    group.by='sample_name',
+                    threshold_data=tmp_threshold_data,
+                    dirpath=file.path(wd, figures_dir, 'individual', sample_name, 'qc'),
+                    file_basename=sample_name,
+                    troubleshooting=troubleshooting,
+                    showfig=troubleshooting
+                )
+
+                # ----------------------------------------------------------------------
+                # Filter and Normalize
+
+                tmp_seurat_obj <- subset(tmp_seurat_obj,
+                    subset = ((nCount_RNA > 1000) & (nCount_RNA <= upper_rna_count) &
+                              (nFeature_RNA > 300) & (nFeature_RNA <= upper_rna_feature) &
+                              (percent.mt <= upper_pct_mt))
+                )
+
+                # Filter genes expressed by less than 3 cells
+                # See: https://matthieuxmoreau.github.io/EarlyPallialNeurogenesis/html-Reports/Quality_Control.html
+                num_cells_per_gene <- rowSums(tmp_seurat_obj[['RNA']]@counts > 0)
+                genes_to_keep <- names(num_cells_per_gene[num_cells_per_gene >= 3])
+                tmp_seurat_obj <- tmp_seurat_obj[genes_to_keep, ]
+
+                # Filter barcodes below knee point
+                # Note: Disabled due to overfiltering of false negatives
+                # barcodes_to_keep <- rownames(barcode_data[(barcode_data['total'] >= knee), ])
+                # tmp_seurat_obj <- tmp_seurat_obj[, barcodes_to_keep]
+
+                # Normalize
+                tmp_seurat_obj <- tmp_seurat_obj %>%
+                    NormalizeData(verbose = FALSE) %>%
+                    FindVariableFeatures(
+                        verbose = FALSE, selection.method = "vst",
+                        nfeatures = 2000
+                    )
+
+                seurat_objs[[sample_name]] <- tmp_seurat_obj
+
+                if (!troubleshooting) {
+                    rm(tmp_seurat_obj)
+                    gc()
+                }
+            },
+
+            # pass
+            error = function(condition) {
+                log_print(paste("WARNING: SAMPLE", sample_name, "NOT PROCESSED!!!"))
+                log_print(paste("Error message: ", conditionMessage(condition)))
+                sample_names <<- sample_names[(sample_names != sample_name)]
+            })
+        }
+
+        seurat_objs <- as.list(seurat_objs)
+        threshold_data <- do.call("rbind", as.list(threshold_data))
+
+        # ----------------------------------------------------------------------
+        # Integrate Data
+
+        if (length(seurat_objs)>1) {
+
+            log_print(paste(Sys.time(), 'Integrating data...'))
+
+            # integrate
+            features_list <- SelectIntegrationFeatures(object.list = seurat_objs, nfeatures = 2000)
             withCallingHandlers({
-                tmp_seurat_obj <- CreateSeuratObject(counts = filt_mtx, min.cells = 3)
+                anchors <- FindIntegrationAnchors(object.list = seurat_objs, anchor.features = features_list)
             }, warning = function(w) {
-                if ( any(grepl("Non-unique features", w)) ) {
+                if ( any(grepl("Some cell names are duplicated", w)) ) {
                     invokeRestart("muffleWarning")
                 }
             })
-            if (!troubleshooting) {
-                rm(raw_mtx)
-                rm(filt_mtx)
-                gc()
-            }
+            seurat_obj <- IntegrateData(anchorset = anchors)  # reduction = "pca" may run faster?
+            DefaultAssay(seurat_obj) <- "integrated"
+            is_integrated <- TRUE
 
-            tmp_seurat_obj$sample_name <- sample_name
-            tmp_seurat_obj[["percent.mt"]] <- PercentageFeatureSet(
-                tmp_seurat_obj, pattern = "^mt-"
-            )
+        } else if (length(seurat_objs)==1) {
 
-            # For the filters, thresholds are adjusted automatically
-            # Lower bound: low quality cells
-            # Upper bound: potential doublets
-            c(tmp_threshold_data, upper_rna_count,
-              upper_rna_feature, upper_pct_mt) %<-% compute_thresholds(
-                  tmp_seurat_obj,
-                  sample_name=sample_name
-            )
-            threshold_data[[sample_name]] <- tmp_threshold_data
+            log_print(paste(Sys.time(), 'Processing individual dataset...'))
+            seurat_obj <- seurat_objs[[1]]
+            group_name <- sample_name
+            is_integrated <- FALSE
 
-            draw_qc_plots(
-                tmp_seurat_obj,
-                group.by='sample_name',
-                threshold_data=tmp_threshold_data,
-                dirpath=file.path(wd, figures_dir, 'individual', sample_name, 'qc'),
-                file_basename=sample_name,
-                troubleshooting=troubleshooting,
-                showfig=troubleshooting
-            )
+        } else {
 
-            # ----------------------------------------------------------------------
-            # Filter and Normalize
+            log_print(paste(Sys.time(), 'No files processed, skipping loop...'))
+            next()
+        }
 
-            tmp_seurat_obj <- subset(tmp_seurat_obj,
-                subset = ((nCount_RNA > 1000) & (nCount_RNA <= upper_rna_count) &
-                          (nFeature_RNA > 300) & (nFeature_RNA <= upper_rna_feature) &
-                          (percent.mt <= upper_pct_mt))
-            )
+        multiplicity <- ifelse(is_integrated, 'integrated', 'individual')
+        prefix <- ifelse(is_integrated, 'integrated-', '')
 
-            # Filter genes expressed by less than 3 cells
-            # See: https://matthieuxmoreau.github.io/EarlyPallialNeurogenesis/html-Reports/Quality_Control.html
-            num_cells_per_gene <- rowSums(tmp_seurat_obj[['RNA']]@counts > 0)
-            genes_to_keep <- names(num_cells_per_gene[num_cells_per_gene >= 3])
-            tmp_seurat_obj <- tmp_seurat_obj[genes_to_keep, ]
+        # ----------------------------------------------------------------------
+        # Label Clusters using SingleR
+        
+        # Run the standard workflow
+        ndim = 30  # standard
+        seurat_obj <- ScaleData(seurat_obj, verbose = FALSE)
+        seurat_obj <- RunPCA(seurat_obj, npcs = ndim, verbose = FALSE)  # required for RunUMAP
+        seurat_obj <- RunUMAP(seurat_obj, reduction = "pca", dims = 1:ndim)
+        seurat_obj <- FindNeighbors(seurat_obj, reduction = "pca", dims = 1:ndim)
+        seurat_obj <- FindClusters(seurat_obj, resolution = 0.5)
 
-            # Filter barcodes below knee point
-            # Note: Disabled due to overfiltering of false negatives
-            # barcodes_to_keep <- rownames(barcode_data[(barcode_data['total'] >= knee), ])
-            # tmp_seurat_obj <- tmp_seurat_obj[, barcodes_to_keep]
+        log_print(paste(Sys.time(), 'Labeling clusters...'))
 
-            # Normalize
-            tmp_seurat_obj <- tmp_seurat_obj %>%
-                NormalizeData(verbose = FALSE) %>%
-                FindVariableFeatures(
-                    verbose = FALSE, selection.method = "vst",
-                    nfeatures = 2000
-                )
-
-            seurat_objs[[sample_name]] <- tmp_seurat_obj
-
-            if (!troubleshooting) {
-                rm(tmp_seurat_obj)
-                gc()
-            }
-        },
-
-        # pass
-        error = function(condition) {
-            log_print(paste("WARNING: SAMPLE", sample_name, "NOT PROCESSED!!!"))
-            log_print(paste("Error message: ", conditionMessage(condition)))
-            sample_names <<- sample_names[(sample_names != sample_name)]
-        })
-    }
-
-    seurat_objs <- as.list(seurat_objs)
-    threshold_data <- do.call("rbind", as.list(threshold_data))
-
-    # ----------------------------------------------------------------------
-    # Integrate Data
-
-    if (length(seurat_objs)>1) {
-
-        log_print(paste(Sys.time(), 'Integrating data...'))
-
-        # integrate
-        features_list <- SelectIntegrationFeatures(object.list = seurat_objs, nfeatures = 2000)
+        DefaultAssay(seurat_obj) <- "RNA"
         withCallingHandlers({
-            anchors <- FindIntegrationAnchors(object.list = seurat_objs, anchor.features = features_list)
+            ref_data <- celldex_switch[[opt$celldex]](ensembl=opt[['ensembl']])(localHub=TRUE)
         }, warning = function(w) {
-            if ( any(grepl("Some cell names are duplicated", w)) ) {
+            if ( any(grepl("was built under R version", w)) ) {
                 invokeRestart("muffleWarning")
             }
         })
-        seurat_obj <- IntegrateData(anchorset = anchors)  # reduction = "pca" may run faster?
-        DefaultAssay(seurat_obj) <- "integrated"
-        is_integrated <- TRUE
 
-    } else if (length(seurat_objs)==1) {
+        predictions <- SingleR(
+            test=as.SingleCellExperiment(seurat_obj),
+            assay.type.test=1,
+            ref=ref_data,
+            labels=ref_data[['label.main']]
+        )
 
-        log_print(paste(Sys.time(), 'Processing individual dataset...'))
-        seurat_obj <- seurat_objs[[1]]
-        group_name <- sample_name
-        is_integrated <- FALSE
+        seurat_obj$cell_type <- predictions[['labels']]
+        Idents(seurat_obj) <- seurat_obj$cell_type
+
+        draw_predictions(
+            predictions,
+            dirpath=file.path(wd, figures_dir, multiplicity, group_name, 'labels'),
+            file_basename=group_name,
+            troubleshooting=troubleshooting,
+            showfig=troubleshooting
+        )
+
+        # ----------------------------------------------------------------------
+        # Save Data
+
+        log_print(paste(Sys.time(), 'Saving Seurat object...'))
+
+        # seurat_obj
+        filepath=file.path(wd, output_dir, 'rdata',
+            paste0('seurat_obj-', prefix, group_name, '.RData'))
+        if (!troubleshooting) {
+            if (!dir.exists(dirname(filepath))) { dir.create(dirname(filepath), recursive=TRUE) }
+            save(seurat_obj, file=filepath)
+        }
 
     } else {
 
-        log_print(paste(Sys.time(), 'No files processed, skipping loop...'))
-        next()
+        is_integrated <- TRUE
+        multiplicity <- ifelse(is_integrated, 'integrated', 'individual')
+        prefix <- ifelse(is_integrated, 'integrated-', '')
+
+        filepath=file.path(wd, output_dir, 'rdata',
+            paste0('seurat_obj-', prefix, group_name, '.RData'))
+        seurat_obj <- load_rdata(filepath=filepath)
+        threshold_data <- NULL
+
+        sample_names <- c(unique(seurat_obj[['sample_name']]))[[1]]
+
     }
-
-    multiplicity <- ifelse(is_integrated, 'integrated', 'individual')
-    prefix <- ifelse(is_integrated, 'integrated-', '')
-
-    # ----------------------------------------------------------------------
-    # Label Clusters using SingleR
     
-    # Run the standard workflow
-    ndim = 30  # standard
-    seurat_obj <- ScaleData(seurat_obj, verbose = FALSE)
-    seurat_obj <- RunPCA(seurat_obj, npcs = ndim, verbose = FALSE)  # required for RunUMAP
-    seurat_obj <- RunUMAP(seurat_obj, reduction = "pca", dims = 1:ndim)
-    seurat_obj <- FindNeighbors(seurat_obj, reduction = "pca", dims = 1:ndim)
-    seurat_obj <- FindClusters(seurat_obj, resolution = 0.5)
-
-    log_print(paste(Sys.time(), 'Labeling clusters...'))
-
-    DefaultAssay(seurat_obj) <- "RNA"
-    withCallingHandlers({
-        ref_data <- celldex_switch[[opt$celldex]](ensembl=opt[['ensembl']])
-    }, warning = function(w) {
-        if ( any(grepl("was built under R version", w)) ) {
-            invokeRestart("muffleWarning")
-        }
-    })
-
-    predictions <- SingleR(
-        test=as.SingleCellExperiment(seurat_obj),
-        assay.type.test=1,
-        ref=ref_data,
-        labels=ref_data[['label.main']]
-    )
-
-    seurat_obj$cell_type <- predictions[['labels']]
-    Idents(seurat_obj) <- seurat_obj$cell_type
-
-    draw_predictions(
-        predictions,
-        dirpath=file.path(wd, figures_dir, multiplicity, group_name, 'labels'),
-        file_basename=group_name,
-        troubleshooting=troubleshooting,
-        showfig=troubleshooting
-    )
-
-
-    # ----------------------------------------------------------------------
-    # Save Data
-
-    log_print(paste(Sys.time(), 'Saving Seurat object...'))
-
-    # seurat_obj
-    filepath=file.path(wd, output_dir, 'rdata',
-        paste0('seurat_obj-', prefix, group_name, '.RData'))
-    if (!troubleshooting) {
-        if (!dir.exists(dirname(filepath))) { dir.create(dirname(filepath), recursive=TRUE) }
-        save(seurat_obj, file=filepath)
-    }
-
-    # filepath=file.path(wd, output_dir, 'rdata', paste0('seurat_obj-integrated-', group_name, '.RData'))
-    # import::from(file.path(wd, 'R', 'tools', 'file_io.R'),
-    #     'load_rdata', .character_only=TRUE) 
-    # seurat_obj <- load_rdata(filepath=filepath)
-    # threshold_data <- NULL
-    # is_integrated <- TRUE
-    # multiplicity <- ifelse(is_integrated, 'integrated', 'individual')
-    # prefix <- ifelse(is_integrated, 'integrated-', '')
-
 
     # ----------------------------------------------------------------------
     # Export Results

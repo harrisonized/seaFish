@@ -148,14 +148,41 @@ draw_gene_of_interest <- function(
     showfig=FALSE
 ) {
 
-    gene_col <- paste0('log1p_cp10k_', gene)
-    seurat_obj[[gene_col]] <- seurat_obj[["RNA"]]@data[gene, ]
+    count_gene <- paste0("nCount_", gene)
+    seurat_obj[[count_gene]] <- seurat_obj[["RNA"]]@counts[gene, ]
+
+    lognorm_gene <- paste0('log1p_cp10k_', gene)
+    seurat_obj[[lognorm_gene]] <- seurat_obj[["RNA"]]@data[gene, ]
 
     # ----------------------------------------------------------------------
-    # Figure 1. UMAP
+    # Figure 1. QC: Count vs. Total Counts per Cell
+
+    for (color in c('sample_name', 'cell_type')) {
+
+        fig <- plot_scatter(
+            seurat_obj@meta.data,
+            x='nCount_RNA',
+            y=paste0("nCount_", gene),
+            color=color,
+            xlabel='Total Reads',
+            ylabel=paste(gene, 'Counts'),
+            title=paste(gene, 'Counts vs. Sequencing Depth per Sample'),
+            point_size=0.05,
+            jitter_height=0.1,
+            jitter=TRUE
+        )
+
+        if (showfig) { print(fig) }
+        savefig(file.path(dirpath, 'qc', paste0('scatter-qc-', color, '-', file_basename, '-', tolower(gene), '.png')),
+                height=800, width=1200,
+                troubleshooting=troubleshooting)
+    }
+
+    # ----------------------------------------------------------------------
+    # Figure 2. UMAP
 
     fig <- FeaturePlot(seurat_obj,
-            reduction = "umap", features = gene_col,
+            reduction = "umap", features = lognorm_gene,
             pt.size = 0.4, min.cutoff = 'q10', order = TRUE, label = FALSE) +
         ggtitle( opt[['gene-of-interest']] )
     if (showfig) { print(fig) }
@@ -164,10 +191,10 @@ draw_gene_of_interest <- function(
             troubleshooting=troubleshooting)
 
     # ----------------------------------------------------------------------
-    # Figure 2. Violin
+    # Figure 3. Violin
 
     fig <- plot_violin(seurat_obj,
-        cols=c(gene_col), group.by='cell_type',
+        cols=c(lognorm_gene), group.by='cell_type',
         threshold_data=NULL, alpha=0.5,
         xlabel='',
         ylabel='LogNorm Expression',
@@ -178,11 +205,10 @@ draw_gene_of_interest <- function(
             height=800, width=800,
             troubleshooting=troubleshooting)
 
-
     # ----------------------------------------------------------------------
-    # Figure 3. Ridge without 0
+    # Figure 4. Ridge without 0
 
-    fig <- RidgePlot(seurat_obj, gene_col) +
+    fig <- RidgePlot(seurat_obj, lognorm_gene) +
         xlim(5e-5, NA) +
         labs(x='LogNorm Expression\n( log(1+CP10K) )', y=NULL, title=paste(gene, "Expression"))
     if (showfig) { print(fig) }
@@ -191,7 +217,7 @@ draw_gene_of_interest <- function(
             troubleshooting=troubleshooting)
 
     # ----------------------------------------------------------------------
-    # Figure 4. Bar plot
+    # Figure 5. Bar plot
 
     cell_counts <- compute_cell_counts(seurat_obj, gene=gene, ident='cell_type')
 
@@ -199,13 +225,13 @@ draw_gene_of_interest <- function(
     cell_counts_long <- cell_counts %>%
         dplyr::select(all_of(c('cell_type', value_cols))) %>%
         tidyr::pivot_longer(cols=value_cols)
-    cell_counts_long[gene_col] <- sapply(cell_counts_long['name'], function(x) gsub('num_cells_', '', x))
+    cell_counts_long[lognorm_gene] <- sapply(cell_counts_long['name'], function(x) gsub('num_cells_', '', x))
     
     fig <- plot_bar(
         cell_counts_long[order(-cell_counts_long$value, decreasing = FALSE), ],
         x='cell_type',
         y='value',
-        group.by=gene_col,  # gene of interest
+        group.by=lognorm_gene,  # gene of interest
         xlabel=NULL,
         ylabel="Number of Cells",
         title=paste0('Number of ', gene, '+ Cells'),

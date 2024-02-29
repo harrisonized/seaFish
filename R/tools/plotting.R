@@ -92,8 +92,17 @@ plot_scatter <- function(
     point_size=0.5,
     log_x=FALSE,
     log_y=FALSE,
-    legend_large_circle=TRUE
+    legend_large_circle=TRUE,
+    jitter_height=0.05,
+    jitter=FALSE
 ) {
+
+    # jitter
+    if (jitter) {
+        geom_func <- geom_jitter(alpha=alpha, size=point_size, height=jitter_height, na.rm=TRUE)
+    } else {
+        geom_func <- geom_point(alpha=alpha, size=point_size, na.rm=TRUE)
+    }
 
     # group.by
     if (is.null(color)) { colour <- NULL } else { colour <- sym(color) }
@@ -112,6 +121,7 @@ plot_scatter <- function(
         )
     } else { scale_y <- list() }
 
+    # legend
     if (legend_large_circle) {
         guide <- guides( colour=guide_legend(override.aes=list(size=4L,alpha=1)) )
     } else {
@@ -122,7 +132,7 @@ plot_scatter <- function(
     fig <- ggplot(df,
               aes(x=.data[[x]], y=.data[[y]],
                   colour=!!colour) ) +
-       geom_point(alpha=alpha, size=point_size, na.rm=TRUE) +
+       geom_func +
        labs(x=xlabel, y=ylabel, title=title) + 
        guide +
        scale_x +
