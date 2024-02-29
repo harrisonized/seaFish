@@ -351,6 +351,10 @@ for (group_name in names(config)) {
     # import::from(file.path(wd, 'R', 'tools', 'file_io.R'),
     #     'load_rdata', .character_only=TRUE) 
     # seurat_obj <- load_rdata(filepath=filepath)
+    # threshold_data <- NULL
+    # is_integrated <- TRUE
+    # multiplicity <- ifelse(is_integrated, 'integrated', 'individual')
+    # prefix <- ifelse(is_integrated, 'integrated-', '')
 
 
     # ----------------------------------------------------------------------
