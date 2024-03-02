@@ -24,13 +24,14 @@ SeuratData::InstallData("ifnb")
 
 ## Scripts
 
-These are the available scripts, to be run in the order listed.
+These are the available scripts.
 
 | Script Number | Script Name | Description |
-| :--- | ------ | ----------- |
-| 1 | R/finding\_nemo.R | Main script for analyzing scRNAseq dataset. A more detailed description is coming |
-| 2 | R/arribada.R | Parallelize the data analysis. |
-| 3 | R/aquarium.R  | Shiny app. Still under development. |
+| :------------ | ----------- | ----------- |
+| 1 | R/shoal\_formation.R | This script performs basic qc filtering, integrates the data as defined by the config.json files,  and uses SingleR to label the clusters in an unbiased way. It outputs a variety of figures and the .RData file to be used downstream. |
+| 2 | R/finding\_nemo.R | This script visualizes your gene of interest using the .RData file output by R/shoal\_formation.R. This is a relatively fast script. |
+| 3 | R/arribada.R | Parallelizes shoal_formation, since this takes some time. |
+| 4 | R/aquarium.R  | Shiny app. Still under development. |
 
 
 ## Copyright

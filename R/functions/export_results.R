@@ -5,55 +5,35 @@ import::here(file.path(wd, 'R', 'functions', 'draw_plots.R'),
     .character_only=TRUE)
 
 ## Functions
-## export_analysis_results
+## export_clustering_results
+## export_gene_of_interest
 
 
-#' Export Analysis Results
+#' Export Clustering Results
 #' 
-#' @description
-#' Given a seurat_obj, exports three groups of figures:
-#' qc plots, umaps of labeled clusters, and gene_of_interest figures
-#' Can also export the raw counts
-#' 
-export_analysis_results <- function(
+export_clustering_results <- function(
     seurat_obj,
-    gene='Dnase1l1',
     threshold_data=NULL,
     group.by='sample_name',
+    sample_name='SeuratProject',
+    multiplicity='integrated',
     data_dir='data/output',
     figures_dir='figures/output',
-    multiplicity='integrated',
-    sample_name='SeuratProject',
     figures_subdir='',
     file_basename='SeuratProject',
-    plot_qc=TRUE,
-    export_counts=TRUE,
     troubleshooting=FALSE,
     showfig=FALSE
 ) {
 
-    # gene-of-interest by cell-type csv
-    if (export_counts) {
-        cell_counts <- compute_cell_counts(seurat_obj, gene=gene, ident='cell_type')
-        filepath=file.path(wd, data_dir, 'expression', tolower(gene), multiplicity,
-            paste0('cell_type-', file_basename, '-', tolower(gene), '.csv'))
-        if (!troubleshooting) {
-            if ( !dir.exists(dirname(filepath)) ) { dir.create(dirname(filepath), recursive=TRUE) }
-            write.table(cell_counts, file = filepath, row.names = FALSE, sep = ',')
-        }
-    }
-
-    if (plot_qc) {
-        draw_qc_plots(
-            seurat_obj,
-            group.by=group.by,
-            threshold_data=threshold_data,
-            dirpath=file.path(wd, figures_dir, multiplicity, sample_name, 'qc', figures_subdir),
-            file_basename=file_basename,
-            troubleshooting=troubleshooting,
-            showfig=showfig
-        )
-    }
+    draw_qc_plots(
+        seurat_obj,
+        group.by=group.by,
+        threshold_data=threshold_data,
+        dirpath=file.path(wd, figures_dir, multiplicity, sample_name, 'qc', figures_subdir),
+        file_basename=file_basename,
+        troubleshooting=troubleshooting,
+        showfig=showfig
+    )
 
     draw_clusters(
         seurat_obj,
@@ -63,6 +43,34 @@ export_analysis_results <- function(
         troubleshooting=troubleshooting,
         showfig=showfig
     )
+}
+
+
+#' Export Gene of Interest
+#' 
+export_gene_of_interest <- function(
+    seurat_obj,
+    gene='Dnase1l1',
+    sample_name='SeuratProject',
+    multiplicity='integrated',
+    data_dir='data/output',
+    figures_dir='figures/output',
+    figures_subdir='',
+    file_basename='SeuratProject',
+    troubleshooting=FALSE,
+    showfig=FALSE
+) {
+
+    # gene-of-interest by cell-type csv
+    cell_counts <- compute_cell_counts(seurat_obj, gene=gene, ident='cell_type')
+    filepath=file.path(
+        wd, data_dir, 'expression', tolower(gene), multiplicity,
+        paste0('cell_type-', file_basename, '-', tolower(gene), '.csv')
+    )
+    if (!troubleshooting) {
+        if ( !dir.exists(dirname(filepath)) ) { dir.create(dirname(filepath), recursive=TRUE) }
+        write.table(cell_counts, file = filepath, row.names = FALSE, sep = ',')
+    }
 
     draw_gene_of_interest(
         seurat_obj,

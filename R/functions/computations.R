@@ -1,6 +1,6 @@
 ## Compute data from seurat_obj for plotting
 
-import::here(dplyr, 'count')
+import::here(dplyr, 'count', 'filter')
 import::here(file.path(wd, 'R', 'tools', 'df_tools.R'),
     'fillna', .character_only=TRUE)
 
@@ -54,7 +54,7 @@ compute_cell_counts <- function(seurat_obj, gene, ident='cell_type') {
 
     num_total_cells <- dplyr::count(seurat_obj@meta.data, .data[[ident]], name='num_cells')
     num_pos_cells <- dplyr::count(
-        filter(seurat_obj@meta.data, (.data[[lognorm_gene]] > 0)),
+        dplyr::filter(seurat_obj@meta.data, (.data[[lognorm_gene]] > 0)),
         cell_type, name='num_cells')
     cell_counts <- merge(
         num_total_cells, num_pos_cells,

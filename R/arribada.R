@@ -1,7 +1,7 @@
 ## Every fall, thousands of sea turtles arrive on the shores of Costa Rica to
 ## synchronously lay millions of eggs in an event known as the arribada,
 ## Spanish for "arrival by sea." This script is an orchestrator that
-## synchronously runs the other scripts.
+## synchronously runs shoal_formation.R.
 
 wd = dirname(this.path::here())  # wd = '~/github/R/seaFish'
 library('parallel')
@@ -39,19 +39,15 @@ option_list = list(
                            "row names to Ensembl IDs. Genes without a mapping to a",
                            "non-duplicated Ensembl ID are discarded.")),
 
-    make_option(c("-g", "--gene-of-interest"), default="Dnase1l1",
-                metavar="Dnase1l1", type="character",
-                help="choose a gene"),
+    make_option(c("-m", "--markers"), default=FALSE,
+                metavar="FALSE", action="store_true", type="logical",
+                help="turn this on to plot heatmap of top markers"),
 
     make_option(c("-s", "--slice"), default="",
                 metavar="", type="character",
                 help="enter comma separated list of indices"),
 
-    make_option(c("-l", "--load-savepoint"), default=FALSE,
-                metavar="FALSE", action="store_true", type="logical",
-                help="use this to skip reading in the data and doing the data integration, use this for testing"),
-
-    make_option(c("-m", "--method"), default="collate",
+    make_option(c("-z", "--group-option"), default="collate",
                 metavar="collate", type="character",
                 help="choose from 'collate' or 'chunk'"),
 
@@ -108,9 +104,9 @@ if (opt[['slice']] != '') {
     idxs <- seq(1, length(config), by=1)
 }
 
-if (opt[['method']]=='collate') {
+if (opt[['group-option']]=='collate') {
     grouped_idxs <- collate(idxs, opt[['num']])
-} else if (opt[['method']]=='chunk') {
+} else if (opt[['group-option']]=='chunk') {
     grouped_idxs <- chunker(idxs, opt[['num']])
 } else {
     stop("Choose a valid method: 'collate' or 'chunk'")
@@ -126,15 +122,14 @@ commands <- new.env()
 for (idx in 1:length(grouped_idxs)) {
 
     command <- paste(
-        'Rscript R/finding_nemo.R',
+        'Rscript R/shoal_formation.R',
             '-i', opt[['input-dir']],
             '-o', opt[['output-dir']],
             '-j', opt[['config']],
             '-c', opt[['celldex']],
             ifelse(opt[['ensembl']], '-e', ''),
-            '-g', opt[['gene-of-interest']],
+            ifelse(opt[['markers']], '-m', ''),
             '-s', '"', as.character(paste0(grouped_idxs[idx])), '"',
-            ifelse(opt[['load-savepoint']], '-l', ''),
             ifelse(opt[['troubleshooting']], '-t', '')
     )
     log_print(command)
@@ -147,9 +142,10 @@ commands <- as.list(commands)
 # Run in parallel
 
 if (!troubleshooting) {
-    invisible(
-        mclapply(commands, function(x) system(x), mc.cores = min(n_cores, length(commands)))
-    )
+    invisible(mclapply(
+        commands, function(x) system(x),
+        mc.cores = min( n_cores, length(commands) )
+    ))
 }
 
 
