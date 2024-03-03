@@ -122,7 +122,7 @@ commands <- new.env()
 for (idx in 1:length(grouped_idxs)) {
 
     command <- paste(
-        'Rscript R/shoal_formation.R',
+        'Rscript R/shoaling_fish.R',
             '-i', opt[['input-dir']],
             '-o', opt[['output-dir']],
             '-j', opt[['config']],
