@@ -44,6 +44,10 @@ option_list = list(
                 metavar="", type="character",
                 help="enter comma separated list of indices"),
 
+    make_option(c("-v", "--volcano"), default=FALSE, action="store_true",
+                metavar="FALSE", type="logical",
+                help="use this to draw volcano plots, which require additional time to compute"),
+
     make_option(c("-t", "--troubleshooting"), default=FALSE, action="store_true",
                 metavar="FALSE", type="logical",
                 help="enable if troubleshooting to prevent overwriting your files")
@@ -118,43 +122,47 @@ for (group_name in group_names) {
         is_integrated <- ifelse(multiplicity=='integrated', TRUE, FALSE)
         prefix <- ifelse(is_integrated, 'integrated-', '')
         
-
         # ----------------------------------------------------------------------
         # Export Results
 
-        log_print(paste(Sys.time(), 'Exporting integrated results...'))
+        if (is_integrated) {
 
-        export_gene_of_interest(
-            seurat_obj,
-            gene=gene,
-            sample_name=group_name,
-            multiplicity=multiplicity,
-            data_dir=output_dir,
-            figures_dir=figures_dir,
-            file_basename=paste0(prefix, group_name),
-            troubleshooting=troubleshooting,
-            showfig=troubleshooting
-        )
+            log_print(paste(Sys.time(), 'Exporting integrated results...'))
 
-        log_print(paste(Sys.time(), 'Exporting integrated subset...'))
+            export_gene_of_interest(
+                seurat_obj,
+                gene=gene,
+                sample_name=group_name,
+                multiplicity=multiplicity,
+                data_dir=output_dir,
+                figures_dir=figures_dir,
+                file_basename=paste0(prefix, group_name),
+                include_volcano=opt[['volcano']],
+                troubleshooting=troubleshooting,
+                showfig=troubleshooting
+            )
 
-        # Keep significant populations (number of cells > 50)
-        num_cells_per_label <- as.data.frame(table(seurat_obj$cell_type))  # value counts
-        populations_to_keep <- num_cells_per_label[num_cells_per_label['Freq'] > 50, 'Var1']
-        seurat_obj_subset <- seurat_obj[, seurat_obj$cell_type %in% populations_to_keep]
+            log_print(paste(Sys.time(), 'Exporting integrated subset...'))
 
-        export_gene_of_interest(
-            seurat_obj_subset,
-            gene=gene,
-            sample_name=group_name,
-            multiplicity=multiplicity,
-            data_dir=output_dir,
-            figures_dir=figures_dir,
-            figures_subdir='subset',
-            file_basename=paste0(prefix, group_name, '-subset'),
-            troubleshooting=troubleshooting,
-            showfig=troubleshooting
-        )
+            # Keep significant populations (number of cells > 50)
+            num_cells_per_label <- as.data.frame(table(seurat_obj$cell_type))  # value counts
+            populations_to_keep <- num_cells_per_label[num_cells_per_label['Freq'] > 50, 'Var1']
+            seurat_obj_subset <- seurat_obj[, seurat_obj$cell_type %in% populations_to_keep]
+
+            export_gene_of_interest(
+                seurat_obj_subset,
+                gene=gene,
+                sample_name=group_name,
+                multiplicity=multiplicity,
+                data_dir=output_dir,
+                figures_dir=figures_dir,
+                figures_subdir='subset',
+                file_basename=paste0(prefix, group_name, '-subset'),
+                include_volcano=FALSE,
+                troubleshooting=troubleshooting,
+                showfig=troubleshooting
+            )
+        }
 
 
         # ----------------------------------------------------------------------
@@ -174,6 +182,7 @@ for (group_name in group_names) {
                 data_dir=output_dir,
                 figures_dir=figures_dir,
                 file_basename=sample_name,
+                include_volcano=(!is_integrated) & opt[['volcano']],,
                 troubleshooting=troubleshooting,
                 showfig=troubleshooting
             )

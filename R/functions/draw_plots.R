@@ -3,7 +3,8 @@
 import::here(magrittr, '%>%')
 import::here(dplyr, 'select')
 import::here(tidyselect, 'all_of')
-import::here(tidyr, 'pivot_longer')
+import::here(tidyr, 'pivot_longer', 'pivot_wider')
+import::here(EnhancedVolcano, 'EnhancedVolcano')
 import::here(Seurat, 'DimPlot', 'FeaturePlot', 'RidgePlot')
 import::here(DropletUtils, 'barcodeRanks')
 import::here(SingleR, 'plotScoreHeatmap')
@@ -12,17 +13,20 @@ import::here(ggplot2, 'ggplot', 'aes',  'theme', 'labs',
 
 import::here(file.path(wd, 'R', 'tools', 'file_io.R'),
     'savefig', .character_only=TRUE)
+import::here(file.path(wd, 'R', 'tools', 'df_tools.R'),
+    'set_index', .character_only=TRUE)
 import::here(file.path(wd, 'R', 'tools', 'plotting.R'),
-    'plot_violin', 'plot_scatter', 'plot_waterfall', 'plot_bar', 
+    'plot_violin', 'plot_scatter', 'plot_waterfall', 'plot_bar', 'plot_heatmap',
     .character_only=TRUE)
 import::here(file.path(wd, 'R', 'functions', 'computations.R'),
-    'compute_cell_counts', .character_only=TRUE)
+    'compute_cell_counts', 'compute_gene_labels', .character_only=TRUE)
 
 ## Functions
 ## draw_qc_plots
 ## draw_clusters
 ## draw_gene_of_interest
 ## draw_predictions
+## draw_differential_genes
 
 
 #' Draw QC plots
@@ -98,6 +102,7 @@ draw_clusters <- function(
     dirpath,
     file_basename='SeuratProject',
     title='SeuratProject',
+    include_heatmap=FALSE,
     troubleshooting=FALSE,
     showfig=FALSE
 ) {
@@ -132,6 +137,29 @@ draw_clusters <- function(
     if (showfig) { print(fig) }
     savefig(file.path(dirpath, paste0('umap-', tolower(celldex_dataset), '_labeled-', file_basename, '.png')),
             width=1000*num_samples, troubleshooting=troubleshooting)
+
+    # ----------------------------------------------------------------------
+    # Figure 3. Seurat vs. Celldex
+
+    if (include_heatmap) {
+        seurat_vs_celldex <- as.data.frame(table(
+                seurat_obj@meta.data[, c('seurat_clusters', 'cell_type')])) %>%
+            pivot_wider(
+                id_cols = 'cell_type',
+                names_from='seurat_clusters',
+                values_from='Freq') %>%
+            as.data.frame()
+        
+        fig <- plot_heatmap(
+                set_index(seurat_vs_celldex, 'cell_type'),
+                xlabel='Seurat Cluster',
+                ylabel=paste(celldex_dataset, 'Label'),
+                annotations=TRUE
+            )
+        if (showfig) { print(fig) }
+        savefig(file.path(dirpath, paste0('heatmap-', 'seurat_vs_', tolower(celldex_dataset), '-', file_basename, '.png')),
+                height=800, width=1200, troubleshooting=troubleshooting)
+    }
 }
 
 
@@ -270,7 +298,7 @@ draw_predictions <- function(
     num_cells_per_label <- table(predictions['labels'])
     num_cells_per_label <- num_cells_per_label[sort.list(num_cells_per_label, decreasing=TRUE)]
 
-    plot_bar(
+    fig <- plot_bar(
         data.frame(num_cells_per_label),
         x='labels',
         y='Freq',
@@ -283,4 +311,55 @@ draw_predictions <- function(
     if (showfig) { print(fig) }
     savefig(file.path(dirpath, paste0('histogram-cell_type-', file_basename, '.png')),
             height=800, width=1200, dpi=400, troubleshooting=troubleshooting)
+
+}
+
+
+#' Draw Differential Genes
+#' 
+draw_differential_genes <- function(
+    seurat_obj,
+    gene,
+    dirpath,
+    file_basename='SeuratProject',
+    troubleshooting=FALSE,
+    showfig=FALSE
+) {
+    gene_pos <- paste0(tolower(gene), '_pos')
+    gene_neg <- paste0(tolower(gene), '_neg')
+
+    df <- compute_gene_labels(seurat_obj)
+    Idents(seurat_obj) <- df$gene_labeled_cell_type
+    cell_counts <- compute_cell_counts(seurat_obj, gene=gene, ident='cell_type')
+    cell_types <- cell_counts[(cell_counts['num_cells_pos'] >= 50), 'cell_type']  # only with sufficient cells
+    
+    for (cell_type in cell_types) {
+        markers <- FindMarkers(
+            seurat_obj,
+            ident.1 = paste(cell_type, gene_pos, sep=', '),
+            ident.2 = paste(cell_type, gene_neg, sep=', '),
+            logfc.threshold = 0.1,
+            min.pct = 0.01,
+            test.use = "wilcox",
+            only.pos = FALSE
+        )
+
+        fig <- EnhancedVolcano(
+            markers[(rownames(markers)!='Dnase1l1'), ],
+            x='avg_log2FC',
+            y="p_val_adj",
+            lab=rownames(markers[(rownames(markers)!='Dnase1l1'), ]),
+            title = paste(gene, 'Positive vs. Negative', cell_type),
+            subtitle = NULL,
+            # pCutoff = 1e-05,
+            FCcutoff = log(1.5, base=2)
+        )
+        if (showfig) { print(fig) }
+        savefig(
+            file.path(dirpath,
+            paste0('volcano-', tolower(cell_type), '-', tolower(gene), '-', file_basename, '.png')),
+            height=2000, width=3000, dpi=300,
+            troubleshooting=troubleshooting
+        )
+    }
 }

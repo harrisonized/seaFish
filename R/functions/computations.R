@@ -1,12 +1,15 @@
 ## Compute data from seurat_obj for plotting
 
-import::here(dplyr, 'count', 'filter')
+# import::here(dplyr, 'count', 'filter')
+import::here(magrittr, '%>%')
+import::here(tidyr, 'pivot_wider')
 import::here(file.path(wd, 'R', 'tools', 'df_tools.R'),
     'fillna', .character_only=TRUE)
 
 ## Functions
 ## compute_thresholds
 ## compute_cell_counts
+## compute_gene_labels
 
 
 #' Compute Thresholds
@@ -49,25 +52,53 @@ compute_thresholds <- function(
 #'
 compute_cell_counts <- function(seurat_obj, gene, ident='cell_type') {
 
-    lognorm_gene <- paste0('log1p_cp10k_', gene)
-    seurat_obj[[lognorm_gene]] <- seurat_obj[["RNA"]]@data[gene, ]
-
-    num_total_cells <- dplyr::count(seurat_obj@meta.data, .data[[ident]], name='num_cells')
-    num_pos_cells <- dplyr::count(
-        dplyr::filter(seurat_obj@meta.data, (.data[[lognorm_gene]] > 0)),
-        cell_type, name='num_cells')
-    cell_counts <- merge(
-        num_total_cells, num_pos_cells,
-        by = 'cell_type',
-        all.x=TRUE,  # left join
-        suffixes = c("_total", '_pos')
+    gene_pos <- paste0(tolower(gene), '_pos')
+    seurat_obj[[gene_pos]] <- ifelse(
+        (seurat_obj[["RNA"]]@counts[gene, ] > 0),
+        'num_cells_pos', 'num_cells_neg'
     )
-    cell_counts <- fillna(cell_counts, cols=c('num_cells_pos'), 0)
+    cell_counts <- as.data.frame(table(
+        seurat_obj@meta.data[, c('cell_type', gene_pos)])) %>%
+        pivot_wider(
+            id_cols = 'cell_type',
+            names_from=gene_pos,
+            values_from='Freq') %>%
+        as.data.frame()
 
-    cell_counts['num_cells_neg'] <- cell_counts['num_cells_total'] - cell_counts['num_cells_pos']
+    cell_counts['num_cells_total'] <- cell_counts['num_cells_neg'] + cell_counts['num_cells_pos']
     cell_counts['pct_cells_pos'] <- cell_counts['num_cells_pos'] / cell_counts['num_cells_total']
     
     # sort
     cell_counts <- cell_counts[order(cell_counts[['num_cells_total']], decreasing = TRUE),]
     return(cell_counts)
+}
+
+
+#' Compute Gene Labels
+#' 
+compute_gene_labels <- function(
+    seurat_obj,
+    gene='Dnase1l1'
+) {
+
+    # colnames
+    gene_pos <- paste0(tolower(gene), '_pos')
+    gene_neg <- paste0(tolower(gene), '_neg')
+    is_gene_pos <- paste('is', tolower(gene), 'pos', sep='_')
+    
+    # assignment
+    df <- data.frame(setNames(
+        list(
+            seurat_obj@meta.data[, 'cell_type'],
+            as.integer(seurat_obj[["RNA"]]@counts[gene, ] > 0),
+            ifelse((seurat_obj[["RNA"]]@counts[gene, ] > 0), gene_pos, gene_neg)
+        ),  # data
+        c('cell_type', is_gene_pos, gene_pos)  # colnames
+    ))
+    
+    df[['gene_labeled_cell_type']] <- do.call(
+        paste, c(df[c('cell_type', gene_pos)], sep=", ")
+    )
+
+    return(df) 
 }

@@ -1,6 +1,9 @@
 ## Functions
 ## fillna
+## smelt
+## set_index
 ## reset_index
+## rev_df
 
 
 #' Fill specific column with NA
@@ -31,6 +34,48 @@ fillna <- function(df, cols, val=0, inplace=FALSE) {
 }
 
 
+#' Special Melt
+#' 
+#' @description
+#' Convert a dataframe from a table to long format
+#' This is an alternative to melt that doesn't throw errors
+#' 
+#' @examples
+#' smelt(mtcars[, c('cyl', 'mpg')])
+#' 
+#' @references
+#' See: \href{https://stackoverflow.com/questions/28355377/how-to-add-index-of-a-list-item-after-melt-in-r}{Stack Overflow link}
+#' 
+#' @export
+smelt <- function(
+   df,
+   rowname='row',
+   colname='col',
+   valname='val'
+) {
+   melted <- transform(stack(setNames(df, colnames(df))), id=rownames(df))
+   colnames(melted) <- c(valname, colname, rowname)
+   return(rev(melted))
+}
+
+
+#' Set Index
+#' 
+#' @description
+#' Uses the values in a column to set an index. Needs to be unique.
+#' Mirrors Pandas' \href{https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.set_index.html}{set_index}.
+#' 
+#' @export
+set_index <- function(df, colname, drop=TRUE) {
+
+    rownames(df) <- df[[colname]]
+    if (drop) {
+        df <- df[, !names(df)==colname]
+    }
+    return(df)
+}
+
+
 #' Reset index
 #' 
 #' @description
@@ -56,4 +101,26 @@ reset_index <- function(df, index_name='index', drop=FALSE) {
     }
     rownames(df) <- 1:nrow(df)
     return (df)
+}
+
+
+#' Reverse the order of a dataframe
+#' 
+#' @param df a dataframe
+#' @param how 'row' or 'col'
+#' @return Returns the reversed dataframe.
+#' 
+#' @examples
+#' rev_df(mtcars, how='row')
+#' rev_df(mtcars, how='col')
+#' 
+#' @export
+rev_df <- function(df, how='row') {
+    if (how == 'row') {
+        return(df[dim(df)[1]:1,])
+    } else if (how == 'col') {
+        return(rev(df))
+    } else {
+        stop("Choose how='row' or how='col'")
+    }
 }

@@ -2,7 +2,7 @@ import::here(file.path(wd, 'R', 'functions', 'computations.R'),
     'compute_cell_counts', .character_only=TRUE)
 import::here(file.path(wd, 'R', 'functions', 'draw_plots.R'),
     'draw_qc_plots', 'draw_clusters', 'draw_gene_of_interest',
-    .character_only=TRUE)
+    'draw_differential_genes', .character_only=TRUE)
 
 ## Functions
 ## export_clustering_results
@@ -21,6 +21,7 @@ export_clustering_results <- function(
     figures_dir='figures/output',
     figures_subdir='',
     file_basename='SeuratProject',
+    include_heatmap=TRUE,
     troubleshooting=FALSE,
     showfig=FALSE
 ) {
@@ -40,6 +41,7 @@ export_clustering_results <- function(
         dirpath=file.path(wd, figures_dir, multiplicity, sample_name, 'expression'),
         file_basename=file_basename,
         title=sample_name,
+        include_heatmap=include_heatmap,
         troubleshooting=troubleshooting,
         showfig=showfig
     )
@@ -57,6 +59,7 @@ export_gene_of_interest <- function(
     figures_dir='figures/output',
     figures_subdir='',
     file_basename='SeuratProject',
+    include_volcano=TRUE,
     troubleshooting=FALSE,
     showfig=FALSE
 ) {
@@ -80,4 +83,15 @@ export_gene_of_interest <- function(
         troubleshooting=troubleshooting,
         showfig=showfig
     )
+
+    if (include_volcano) {
+        draw_differential_genes(
+            seurat_obj,
+            gene=gene,
+            dirpath=file.path(wd, figures_dir, multiplicity, sample_name, 'expression', tolower(gene), figures_subdir, 'degs'),
+            file_basename=file_basename,
+            troubleshooting=troubleshooting,
+            showfig=troubleshooting
+        )
+    }
 }

@@ -1,17 +1,21 @@
 wd = dirname(dirname(this.path::here()))
 import::here(rlang, 'sym')
 import::here(ggplot2,
-    'ggplot', 'aes', 'theme', 'theme_bw', 'labs', 
-    'geom_violin', 'geom_boxplot', 'geom_jitter',
+    'ggplot', 'aes', 'aes_string', 'theme', 'theme_bw', 'labs', 
+    'geom_violin', 'geom_boxplot', 'geom_jitter', 'geom_tile', 'geom_text',
     'geom_point', 'geom_hline', 'geom_vline', 'geom_segment', 'geom_bar',
     'guides', 'guide_axis', 'guide_legend',
-    'xlim', 'ylim', 'scale_x_log10', 'scale_y_log10', 'scale_x_discrete',
+    'xlim', 'ylim', 'coord_fixed', 'scale_fill_gradient',
+    'scale_x_log10', 'scale_y_log10', 'scale_x_discrete', 'scale_y_discrete',
     'annotate', 'element_text', 'element_blank')
 import::here(scales, 'trans_breaks', 'trans_format', 'math_format')
 import::here(cowplot, theme_cowplot)
 import::here(patchwork, 'wrap_plots', 'plot_layout')
 import::here(file.path(wd, 'R', 'tools', 'list_tools.R'),
     'filter_list_for_match', .character_only=TRUE)
+import::here(file.path(wd, 'R', 'tools', 'df_tools.R'),
+    'rev_df', 'smelt', .character_only=TRUE)
+
 
 ## Functions
 ## plot_bar
@@ -19,6 +23,7 @@ import::here(file.path(wd, 'R', 'tools', 'list_tools.R'),
 ## plot_violin
 ## plot_volcano
 ## plot_waterfall
+## plot_heatmap
 
 
 #' Plot Bar
@@ -301,5 +306,91 @@ plot_waterfall <- function(
     hline +
     guides( color=guide_legend( override.aes=list(shape=c(NA, NA)) ))
     
+    return(fig)
+}
+
+
+#' Plot a heatmap
+#'
+#' @usage
+#' plot_heatmap(
+#'   df,
+#'   title="Raw Data",
+#'   show_xlabel=TRUE,
+#'   show_ylabel=TRUE,
+#'   annotations=TRUE,
+#'   scientific_notation=FALSE,
+#'   digits=0
+#' )
+#' 
+#' @section Vignette:
+#' See `vignettes/plot_heatmap.Rmd`
+#' 
+#' @export
+plot_heatmap <- function(
+    df,
+    x='col',
+    y='row',
+    fill='val',
+    xlabel=NULL,
+    ylabel=NULL,
+    title=NULL,
+    annotations=FALSE,
+    scientific_notation=FALSE,
+    digits=1
+) {
+    
+    tab <- smelt(rev_df(df))  # reshape
+
+    # axis labels
+    if (!is.null(xlabel)) {
+        xtitle = element_text()
+    } else {
+        xtitle = element_blank()
+    }
+    if (!is.null(ylabel)) {
+        ytitle = element_text()
+    } else {
+        ytitle = element_blank()
+    }
+
+    # annotations
+    if (annotations) {
+        label = 'label'
+        if (scientific_notation) {
+            tab['label'] = lapply(
+                tab['val'], 
+                function(x) formatC(x, format='e', digits=2)
+            )
+            tab['label']
+        } else {
+            tab['label'] = lapply(
+                tab['val'], 
+                function(x) round(x, digits)
+            )
+        }
+        # tab[['label']] <- as.character(tab[['label']])
+    } else {
+        label = NULL
+    }
+
+    fig <- ggplot(tab, aes(x=.data[[x]], y=.data[[y]], fill=.data[[fill]])) +
+        geom_tile(color="white", lwd=0.3, linetype=1, na.rm=FALSE) +
+        scale_y_discrete(limits=rev) +
+        coord_fixed(expand=TRUE) +
+        labs(title = title, x=xlabel, y=ylabel) +
+        theme(plot.title = element_text(size = 10),
+              axis.title.x = xtitle,
+              axis.title.y = ytitle) +
+        scale_fill_gradient(low="#FFF8F8", high="#A50026") +
+        if (annotations) {
+            geom_text(
+                aes_string(label=label),
+                color = 'black',
+                size = 2,
+                na.rm=TRUE
+            )
+        }
+
     return(fig)
 }

@@ -384,6 +384,7 @@ for (group_name in group_names) {
             figures_dir=figures_dir,
             figures_subdir='subset',
             file_basename=paste0(prefix, group_name, '-subset'),
+            include_heatmap=FALSE,
             troubleshooting=troubleshooting,
             showfig=troubleshooting
         )
@@ -418,7 +419,6 @@ for (group_name in group_names) {
     # See: https://satijalab.org/seurat/articles/pbmc3k_tutorial#finding-differentially-expressed-features-cluster-biomarkers
     # Disabled in normal runthrough to save time
 
-
     if (opt[['markers']]) {
 
         log_print(paste(Sys.time(), 'Identifying top markers...'))
@@ -445,7 +445,6 @@ for (group_name in group_names) {
                 width=400*length(populations_to_keep)+400, dpi=400,
                 troubleshooting=troubleshooting)
     }
-
 
     log_print(paste("Loop completed in:", difftime(Sys.time(), loop_start_time)))
 }
