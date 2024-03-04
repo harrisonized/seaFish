@@ -221,13 +221,19 @@ draw_gene_of_interest <- function(
     # ----------------------------------------------------------------------
     # Figure 3. Violin
 
-    fig <- plot_violin(seurat_obj,
-        cols=c(lognorm_gene), group.by='cell_type',
-        threshold_data=NULL, alpha=0.5,
-        xlabel='',
-        ylabel='LogNorm Expression',
-        title=paste(gene, "Expression")
-    )
+    withCallingHandlers({
+        fig <- plot_violin(seurat_obj,
+            cols=c(lognorm_gene), group.by='cell_type',
+            threshold_data=NULL, alpha=0.5,
+            xlabel='',
+            ylabel='LogNorm Expression',
+            title=paste(gene, "Expression")
+        )
+    }, warning = function(w) {
+        if ( any(grepl("fewer than two data points", w)) ) {
+            invokeRestart("muffleWarning")
+        }
+    })
     if (showfig) { print(fig) }
     savefig(file.path(dirpath, paste0('violin-', file_basename, '-', tolower(gene), '.png')),
             height=800, width=800,
@@ -236,13 +242,28 @@ draw_gene_of_interest <- function(
     # ----------------------------------------------------------------------
     # Figure 4. Ridge without 0
 
-    fig <- RidgePlot(seurat_obj, lognorm_gene) +
-        xlim(5e-5, NA) +
-        labs(x='LogNorm Expression\n( log(1+CP10K) )', y=NULL, title=paste(gene, "Expression"))
+    withCallingHandlers({
+        fig <- suppressMessages(
+            # Scale for x is already present.
+            # Adding another scale for x, which will replace the existing scale.
+            RidgePlot(seurat_obj, lognorm_gene) +
+                xlim(5e-5, NA) +
+                labs(x='LogNorm Expression\n( log(1+CP10K) )',
+                     y=NULL,
+                     title=paste(gene, "Expression") )
+        )
+    }, warning = function(w) {
+        if ( any(grepl("rows containing non-finite values", w)) ) {
+            invokeRestart("muffleWarning")
+        }
+    })
     if (showfig) { print(fig) }
-    savefig(file.path(dirpath, paste0('ridge-', file_basename, '-', tolower(gene), '.png')),
-            height=800, width=800,
-            troubleshooting=troubleshooting)
+    suppressMessages(
+        # Picking joint bandwidth of ...
+        savefig(file.path(dirpath, paste0('ridge-', file_basename, '-', tolower(gene), '.png')),
+                height=800, width=800,
+                troubleshooting=troubleshooting)
+    )
 
     # ----------------------------------------------------------------------
     # Figure 5. Bar plot
@@ -329,11 +350,18 @@ draw_differential_genes <- function(
     gene_neg <- paste0(tolower(gene), '_neg')
 
     df <- compute_gene_labels(seurat_obj)
+    orig_ident <- Idents(seurat_obj)
     Idents(seurat_obj) <- df$gene_labeled_cell_type
+    
     cell_counts <- compute_cell_counts(seurat_obj, gene=gene, ident='cell_type')
     cell_types <- cell_counts[(cell_counts['num_cells_pos'] >= 50), 'cell_type']  # only with sufficient cells
     
+
+    # ----------------------------------------------------------------------
+    # Figure 1. Volcano plot
+
     for (cell_type in cell_types) {
+
         markers <- FindMarkers(
             seurat_obj,
             ident.1 = paste(cell_type, gene_pos, sep=', '),
@@ -344,22 +372,30 @@ draw_differential_genes <- function(
             only.pos = FALSE
         )
 
-        fig <- EnhancedVolcano(
-            markers[(rownames(markers)!='Dnase1l1'), ],
-            x='avg_log2FC',
-            y="p_val_adj",
-            lab=rownames(markers[(rownames(markers)!='Dnase1l1'), ]),
-            title = paste(gene, 'Positive vs. Negative', cell_type),
-            subtitle = NULL,
-            # pCutoff = 1e-05,
-            FCcutoff = log(1.5, base=2)
-        )
+        withCallingHandlers({
+            fig <- EnhancedVolcano(
+                markers,  # markers[(rownames(markers)!=gene), ]
+                x='avg_log2FC',
+                y="p_val_adj",
+                lab=rownames(markers),
+                title = paste(gene, 'Positive vs. Negative', cell_type),
+                subtitle = NULL,
+                # pCutoff = 1e-05,
+                FCcutoff = log(1.5, base=2)
+            )
+        }, warning = function(w) {
+            if ( any(grepl("One or more p-values is 0.", w)) ) {
+                invokeRestart("muffleWarning")
+            }
+        })
+
         if (showfig) { print(fig) }
         savefig(
             file.path(dirpath,
             paste0('volcano-', tolower(cell_type), '-', tolower(gene), '-', file_basename, '.png')),
-            height=2000, width=3000, dpi=300,
-            troubleshooting=troubleshooting
+            height=2000, width=3000, dpi=300, troubleshooting=troubleshooting
         )
     }
+
+    Idents(seurat_obj) <- orig_ident
 }
