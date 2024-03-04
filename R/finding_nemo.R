@@ -182,7 +182,7 @@ for (group_name in group_names) {
                 data_dir=output_dir,
                 figures_dir=figures_dir,
                 file_basename=sample_name,
-                include_volcano=(!is_integrated) & opt[['volcano']],,
+                include_volcano=opt[['volcano']],,
                 troubleshooting=troubleshooting,
                 showfig=troubleshooting
             )

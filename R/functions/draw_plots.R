@@ -11,15 +11,17 @@ import::here(SingleR, 'plotScoreHeatmap')
 import::here(ggplot2, 'ggplot', 'aes',  'theme', 'labs',
     'xlim', 'ggtitle', 'element_text', 'element_blank')
 
-import::here(file.path(wd, 'R', 'tools', 'file_io.R'),
-    'savefig', .character_only=TRUE)
 import::here(file.path(wd, 'R', 'tools', 'df_tools.R'),
     'set_index', .character_only=TRUE)
+import::here(file.path(wd, 'R', 'tools', 'file_io.R'),
+    'savefig', .character_only=TRUE)
+import::here(file.path(wd, 'R', 'tools', 'text_tools.R'),
+    'title_to_snake_case', .character_only=TRUE)
+import::here(file.path(wd, 'R', 'functions', 'computations.R'),
+    'compute_cell_counts', 'compute_gene_labels', .character_only=TRUE)
 import::here(file.path(wd, 'R', 'tools', 'plotting.R'),
     'plot_violin', 'plot_scatter', 'plot_waterfall', 'plot_bar', 'plot_heatmap',
     .character_only=TRUE)
-import::here(file.path(wd, 'R', 'functions', 'computations.R'),
-    'compute_cell_counts', 'compute_gene_labels', .character_only=TRUE)
 
 ## Functions
 ## draw_qc_plots
@@ -381,7 +383,7 @@ draw_differential_genes <- function(
                 title = paste(gene, 'Positive vs. Negative', cell_type),
                 subtitle = NULL,
                 # pCutoff = 1e-05,
-                FCcutoff = log(1.5, base=2)
+                FCcutoff = 1
             )
         }, warning = function(w) {
             if ( any(grepl("One or more p-values is 0.", w)) ) {
@@ -392,7 +394,7 @@ draw_differential_genes <- function(
         if (showfig) { print(fig) }
         savefig(
             file.path(dirpath,
-            paste0('volcano-', tolower(cell_type), '-', tolower(gene), '-', file_basename, '.png')),
+            paste0('volcano-', title_to_snake_case(cell_type), '-', tolower(gene), '-', file_basename, '.png')),
             height=2000, width=3000, dpi=300, troubleshooting=troubleshooting
         )
     }
