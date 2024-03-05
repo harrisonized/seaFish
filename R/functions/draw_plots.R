@@ -372,7 +372,7 @@ draw_differential_genes <- function(
             seurat_obj,
             ident.1 = paste(cell_type, snake_to_title_case(gene_pos), sep=';'),
             ident.2 = paste(cell_type, snake_to_title_case(gene_neg), sep=';'),
-            logfc.threshold = 0.1,
+            logfc.threshold = 0.1,  # note: smaller values take significantly more time to compute
             min.pct = 0.01,
             test.use = "wilcox",  # note: LR gives similar results
             only.pos = FALSE
@@ -382,11 +382,12 @@ draw_differential_genes <- function(
             fig <- EnhancedVolcano(
                 markers,  # markers[(rownames(markers)!=gene), ]
                 x='avg_log2FC',
-                y="p_val",  # p_val_adj just scales everything down by the same factor
+                y="p_val",  # p_val_adj scales everything using the bonferroni correction
                 lab=rownames(markers),
                 title = paste(gene, 'Positive vs. Negative', cell_type),
+                # ylab =  bquote(~-Log[10] ~ italic(adjusted P)),
                 subtitle = NULL,
-                # pCutoff = 1e-05,
+                # pCutoff = 1e-05,  # default
                 FCcutoff = 1
             )
         }, warning = function(w) {
@@ -416,6 +417,7 @@ draw_differential_genes <- function(
             normalization.method = "LogNormalize"  # nothing to do with this
         )
 
+        # this may be problematic if cell labels include ':'
         Idents(pseudo_bulk) <- unname(sapply(
             rownames(pseudo_bulk@meta.data),
             function(x) strsplit(
@@ -437,11 +439,12 @@ draw_differential_genes <- function(
                 fig <- EnhancedVolcano(
                     markers[(rownames(markers)!=gene), ],
                     x='log2FoldChange',
-                    y="pvalue",
+                    y="pvalue",  # padj scales everything using the bonferroni correction
                     lab=rownames(markers[(rownames(markers)!=gene), ]),
                     title = paste(gene, 'Positive vs. Negative', cell_type),
                     subtitle = NULL,
-                    # pCutoff = 1e-05,
+                    # ylab =  bquote(~-Log[10] ~ italic(adjusted P)),
+                    # pCutoff = 1e-05,  # default
                     FCcutoff = 1
                 )
             }, warning = function(w) {
