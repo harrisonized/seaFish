@@ -6,6 +6,11 @@ import::here(celldex,
 import::here(Seurat,
     'ScaleData', 'RunPCA', 'RunUMAP', 'FindNeighbors', 'FindClusters'
 )
+import::here(DESeq2,
+    'DESeqDataSetFromMatrix', 'estimateSizeFactors', 'estimateDispersions',
+    'nbinomWaldTest', 'results'
+)
+
 
 ## Objects
 ## celldex_switch
@@ -13,6 +18,7 @@ import::here(Seurat,
 ## Functions
 ## run_standard_analysis_workflow
 ## counts_from_seurat
+## FindDESeq2Markers
 
 
 #' Celldex Switch
@@ -98,4 +104,59 @@ counts_from_seurat <- function(
     }
     
     return(df)
+}
+
+
+#' FindDESeq2Markers
+#'
+#' @description
+#' This is a copy of [Seurat::DESeq2DETest()], because using [Seurat::FindMarkers()] with `test.use="DESeq2"` gives the wrong Fold Change, making the volcano appear uncentered.
+#' 
+#' @references
+#' \href{https://github.com/satijalab/seurat/blob/656fc8b562d53e5d0cedda9e09d9dda81e8c00e9/R/differential_expression.R#L1426-L1458}{DESeq2DETest}
+#' 
+FindDESeq2Markers <- function(
+    object,
+    ident.1,
+    ident.2,
+    alpha=0.05,
+    pAdjustMethod="bonferroni",
+    verbose=TRUE
+) {
+    main <- function() {
+        data.use <- slot(object[['RNA']], 'counts')
+        data.use <- round(data.use)
+
+        cells.1 <- WhichCells(object = object, idents = ident.1)
+        cells.2 <- WhichCells(object = object, idents = ident.2)
+
+        group.info <- data.frame(row.names = c(cells.1, cells.2))
+        group.info[cells.1, "group"] <- "Group1"
+        group.info[cells.2, "group"] <- "Group2"
+        group.info[, "group"] <- factor(x = group.info[, "group"])
+        group.info$wellKey <- rownames(x = group.info)
+
+        dds1 <- DESeqDataSetFromMatrix(
+            countData = data.use[, group.info$wellKey],
+            colData = group.info,
+            design = ~ group
+        )
+        dds1 <- estimateSizeFactors(object = dds1)
+        dds1 <- estimateDispersions(object = dds1, fitType = "local")
+        dds1 <- nbinomWaldTest(object = dds1)
+        res <- DESeq2::results(
+            object = dds1,
+            contrast = c("group", "Group1", "Group2"),
+            alpha = alpha,
+            pAdjustMethod = pAdjustMethod
+        )
+    }
+
+    if (verbose) {
+        res <- main()
+    } else {
+        res <- suppressMessages(main())
+    }
+    
+    return(as.data.frame(res))
 }

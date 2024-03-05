@@ -16,12 +16,14 @@ import::here(file.path(wd, 'R', 'tools', 'df_tools.R'),
 import::here(file.path(wd, 'R', 'tools', 'file_io.R'),
     'savefig', .character_only=TRUE)
 import::here(file.path(wd, 'R', 'tools', 'text_tools.R'),
-    'title_to_snake_case', .character_only=TRUE)
+    'snake_to_title_case', 'title_to_snake_case', .character_only=TRUE)
 import::here(file.path(wd, 'R', 'functions', 'computations.R'),
     'compute_cell_counts', 'compute_gene_labels', .character_only=TRUE)
 import::here(file.path(wd, 'R', 'tools', 'plotting.R'),
     'plot_violin', 'plot_scatter', 'plot_waterfall', 'plot_bar', 'plot_heatmap',
     .character_only=TRUE)
+import::here(file.path(wd, 'R', 'tools', 'single_cell_tools.R'),
+    'FindDESeq2Markers', .character_only=TRUE)
 
 ## Functions
 ## draw_qc_plots
@@ -345,32 +347,34 @@ draw_differential_genes <- function(
     gene,
     dirpath,
     file_basename='SeuratProject',
+    include_pseudo_bulk=FALSE,
     troubleshooting=FALSE,
     showfig=FALSE
 ) {
     gene_pos <- paste0(tolower(gene), '_pos')
     gene_neg <- paste0(tolower(gene), '_neg')
 
-    df <- compute_gene_labels(seurat_obj)
+    df <- compute_gene_labels(seurat_obj, sep=';')
     orig_ident <- Idents(seurat_obj)
-    Idents(seurat_obj) <- df$gene_labeled_cell_type
+    seurat_obj[['gene_cell_type']] <- df[['gene_cell_type']]
+    Idents(seurat_obj) <- df[['gene_cell_type']]
     
     cell_counts <- compute_cell_counts(seurat_obj, gene=gene, ident='cell_type')
     cell_types <- cell_counts[(cell_counts['num_cells_pos'] >= 50), 'cell_type']  # only with sufficient cells
     
 
     # ----------------------------------------------------------------------
-    # Figure 1. Volcano plot
+    # Figure 1. DEG analysis on single cell
 
     for (cell_type in cell_types) {
 
         markers <- FindMarkers(
             seurat_obj,
-            ident.1 = paste(cell_type, gene_pos, sep=', '),
-            ident.2 = paste(cell_type, gene_neg, sep=', '),
+            ident.1 = paste(cell_type, snake_to_title_case(gene_pos), sep=';'),
+            ident.2 = paste(cell_type, snake_to_title_case(gene_neg), sep=';'),
             logfc.threshold = 0.1,
             min.pct = 0.01,
-            test.use = "wilcox",
+            test.use = "wilcox",  # note: LR gives similar results
             only.pos = FALSE
         )
 
@@ -378,7 +382,7 @@ draw_differential_genes <- function(
             fig <- EnhancedVolcano(
                 markers,  # markers[(rownames(markers)!=gene), ]
                 x='avg_log2FC',
-                y="p_val_adj",
+                y="p_val",  # p_val_adj just scales everything down by the same factor
                 lab=rownames(markers),
                 title = paste(gene, 'Positive vs. Negative', cell_type),
                 subtitle = NULL,
@@ -399,5 +403,61 @@ draw_differential_genes <- function(
         )
     }
 
+    # ----------------------------------------------------------------------
+    # Figure 2. DEG analysis on pseudo-bulk data
+
+    if (include_pseudo_bulk) {
+
+        pseudo_bulk <- AggregateExpression(
+            seurat_obj,
+            assays = "RNA",
+            return.seurat = TRUE,
+            group.by = c("sample_name", "gene_cell_type"),
+            normalization.method = "LogNormalize"  # nothing to do with this
+        )
+
+        Idents(pseudo_bulk) <- unname(sapply(
+            rownames(pseudo_bulk@meta.data),
+            function(x) strsplit(
+                stringi::stri_replace_last_regex(str=x, pattern = "_", replacement = ":"),
+                split=':'
+            )[[1]][2]
+        ))
+
+        for (cell_type in cell_types) {
+
+            markers <- FindDESeq2Markers(
+                object = pseudo_bulk,
+                ident.1 = paste(cell_type, snake_to_title_case(gene_pos), sep=';'),
+                ident.2 = paste(cell_type, snake_to_title_case(gene_neg), sep=';'),
+                verbose = FALSE
+            )
+
+            withCallingHandlers({
+                fig <- EnhancedVolcano(
+                    markers[(rownames(markers)!=gene), ],
+                    x='log2FoldChange',
+                    y="pvalue",
+                    lab=rownames(markers[(rownames(markers)!=gene), ]),
+                    title = paste(gene, 'Positive vs. Negative', cell_type),
+                    subtitle = NULL,
+                    # pCutoff = 1e-05,
+                    FCcutoff = 1
+                )
+            }, warning = function(w) {
+                if ( any(grepl("One or more p-values is 0.", w)) ) {
+                    invokeRestart("muffleWarning")
+                }
+            })
+
+            if (showfig) { print(fig) }
+            savefig(
+                file.path(dirpath,
+                paste0('pseudo_bulk-', title_to_snake_case(cell_type), '-', tolower(gene), '-', file_basename, '.png')),
+                height=2000, width=3000, dpi=300, troubleshooting=troubleshooting
+            )
+        }
+    }
+    
     Idents(seurat_obj) <- orig_ident
 }

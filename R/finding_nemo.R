@@ -138,6 +138,7 @@ for (group_name in group_names) {
                 figures_dir=figures_dir,
                 file_basename=paste0(prefix, group_name),
                 include_volcano=opt[['volcano']],
+                include_pseudo_bulk=TRUE,
                 troubleshooting=troubleshooting,
                 showfig=troubleshooting
             )
@@ -159,6 +160,7 @@ for (group_name in group_names) {
                 figures_subdir='subset',
                 file_basename=paste0(prefix, group_name, '-subset'),
                 include_volcano=FALSE,
+                include_pseudo_bulk=FALSE,
                 troubleshooting=troubleshooting,
                 showfig=troubleshooting
             )
@@ -182,7 +184,8 @@ for (group_name in group_names) {
                 data_dir=output_dir,
                 figures_dir=figures_dir,
                 file_basename=sample_name,
-                include_volcano=opt[['volcano']],,
+                include_volcano=opt[['volcano']],
+                include_pseudo_bulk=FALSE,
                 troubleshooting=troubleshooting,
                 showfig=troubleshooting
             )

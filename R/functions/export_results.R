@@ -60,6 +60,7 @@ export_gene_of_interest <- function(
     figures_subdir='',
     file_basename='SeuratProject',
     include_volcano=TRUE,
+    include_pseudo_bulk=FALSE,
     troubleshooting=FALSE,
     showfig=FALSE
 ) {
@@ -90,6 +91,7 @@ export_gene_of_interest <- function(
             gene=gene,
             dirpath=file.path(wd, figures_dir, multiplicity, sample_name, 'expression', tolower(gene), figures_subdir, 'degs'),
             file_basename=file_basename,
+            include_pseudo_bulk=include_pseudo_bulk,
             troubleshooting=troubleshooting,
             showfig=troubleshooting
         )

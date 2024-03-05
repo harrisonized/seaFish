@@ -5,6 +5,8 @@ import::here(magrittr, '%>%')
 import::here(tidyr, 'pivot_wider')
 import::here(file.path(wd, 'R', 'tools', 'df_tools.R'),
     'fillna', .character_only=TRUE)
+import::here(file.path(wd, 'R', 'tools', 'text_tools.R'),
+    'snake_to_title_case', .character_only=TRUE)
 
 ## Functions
 ## compute_thresholds
@@ -78,7 +80,8 @@ compute_cell_counts <- function(seurat_obj, gene, ident='cell_type') {
 #' 
 compute_gene_labels <- function(
     seurat_obj,
-    gene='Dnase1l1'
+    gene='Dnase1l1',
+    sep=';'
 ) {
 
     # colnames
@@ -91,13 +94,14 @@ compute_gene_labels <- function(
         list(
             seurat_obj@meta.data[, 'cell_type'],
             as.integer(seurat_obj[["RNA"]]@counts[gene, ] > 0),
-            ifelse((seurat_obj[["RNA"]]@counts[gene, ] > 0), gene_pos, gene_neg)
+            ifelse((seurat_obj[["RNA"]]@counts[gene, ] > 0),
+                   snake_to_title_case(gene_pos), snake_to_title_case(gene_neg))
         ),  # data
         c('cell_type', is_gene_pos, gene_pos)  # colnames
     ))
     
-    df[['gene_labeled_cell_type']] <- do.call(
-        paste, c(df[c('cell_type', gene_pos)], sep=", ")
+    df[['gene_cell_type']] <- do.call(
+        paste, c(df[c('cell_type', gene_pos)], sep=sep)
     )
 
     return(df) 

@@ -14,6 +14,7 @@ BiocManager::install('Seurat')
 BiocManager::install('SingleR')
 BiocManager::install('celldex')
 BiocManager::install('DropletUtils')
+BiocManager::install('DESeq2')
 
 # SeuratData
 devtools::install_github('satijalab/seurat-data@d6a8ce6')
