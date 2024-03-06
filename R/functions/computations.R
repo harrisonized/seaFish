@@ -127,7 +127,7 @@ compute_p_cutoff <- function(
     fc_col='log2FoldChange',
     pval_col='pvalue',
     p_max=5,
-    p_min=1
+    p_min=-log(0.05, base=10)  # 1.301
 ) {
 
     markers[['log2fc_gte_1']] = as.integer(markers[fc_col] >= 1)
