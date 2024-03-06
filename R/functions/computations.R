@@ -52,11 +52,16 @@ compute_thresholds <- function(
 
 #' Compute Cell Counts
 #'
-compute_cell_counts <- function(seurat_obj, gene, ident='cell_type') {
+compute_cell_counts <- function(
+    seurat_obj,
+    gene='Dnase1l1',
+    min_reads = 1,
+    ident='cell_type'
+) {
 
     gene_pos <- paste0(tolower(gene), '_pos')
     seurat_obj[[gene_pos]] <- ifelse(
-        (seurat_obj[["RNA"]]@counts[gene, ] > 0),
+        (seurat_obj[["RNA"]]@counts[gene, ] >= min_reads),
         'num_cells_pos', 'num_cells_neg'
     )
     cell_counts <- as.data.frame(table(
@@ -81,6 +86,7 @@ compute_cell_counts <- function(seurat_obj, gene, ident='cell_type') {
 compute_gene_labels <- function(
     seurat_obj,
     gene='Dnase1l1',
+    min_reads=1,
     sep=';'
 ) {
 
@@ -93,8 +99,8 @@ compute_gene_labels <- function(
     df <- data.frame(setNames(
         list(
             seurat_obj@meta.data[, 'cell_type'],
-            as.integer(seurat_obj[["RNA"]]@counts[gene, ] > 0),
-            ifelse((seurat_obj[["RNA"]]@counts[gene, ] > 0),
+            as.integer(seurat_obj[["RNA"]]@counts[gene, ] >= min_reads),
+            ifelse((seurat_obj[["RNA"]]@counts[gene, ] >= min_reads),
                    snake_to_title_case(gene_pos), snake_to_title_case(gene_neg))
         ),  # data
         c('cell_type', is_gene_pos, gene_pos)  # colnames

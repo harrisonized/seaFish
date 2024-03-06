@@ -15,6 +15,8 @@ import::here(file.path(wd, 'R', 'tools', 'df_tools.R'),
     'set_index', .character_only=TRUE)
 import::here(file.path(wd, 'R', 'tools', 'file_io.R'),
     'savefig', .character_only=TRUE)
+import::here(file.path(wd, 'R', 'tools', 'list_tools.R'),
+    'items_in_a_not_b', .character_only=TRUE)
 import::here(file.path(wd, 'R', 'tools', 'text_tools.R'),
     'snake_to_title_case', 'title_to_snake_case', .character_only=TRUE)
 import::here(file.path(wd, 'R', 'functions', 'computations.R'),
@@ -354,22 +356,24 @@ draw_differential_genes <- function(
     gene_pos <- paste0(tolower(gene), '_pos')
     gene_neg <- paste0(tolower(gene), '_neg')
 
-    df <- compute_gene_labels(seurat_obj, sep=';')
+    df <- compute_gene_labels(seurat_obj, gene=gene, min_reads=1, sep=';')
     orig_ident <- Idents(seurat_obj)
     seurat_obj[['gene_cell_type']] <- df[['gene_cell_type']]
     Idents(seurat_obj) <- df[['gene_cell_type']]
     
-    cell_counts <- compute_cell_counts(seurat_obj, gene=gene, ident='cell_type')
-    cell_types <- cell_counts[(cell_counts['num_cells_pos'] >= 50), 'cell_type']  # only with sufficient cells
-    
+    cell_counts <- compute_cell_counts(seurat_obj, gene=gene, min_reads=1, ident='cell_type')
 
     # ----------------------------------------------------------------------
     # Figure 1. DEG analysis on single cell
 
+    # only export groups with sufficient cells
+    cell_types <- cell_counts[
+        (cell_counts['num_cells_pos'] >= 50), 'cell_type'
+    ]
     for (cell_type in cell_types) {
 
         markers <- FindMarkers(
-            seurat_obj,
+            seurat_obj[items_in_a_not_b(rownames(seurat_obj[['RNA']]), gene), ],
             ident.1 = paste(cell_type, snake_to_title_case(gene_pos), sep=';'),
             ident.2 = paste(cell_type, snake_to_title_case(gene_neg), sep=';'),
             logfc.threshold = 0.1,  # note: smaller values take significantly more time to compute
@@ -380,14 +384,14 @@ draw_differential_genes <- function(
 
         withCallingHandlers({
             fig <- EnhancedVolcano(
-                markers,  # markers[(rownames(markers)!=gene), ]
+                markers[(rownames(markers)!=gene), ],
                 x='avg_log2FC',
                 y="p_val",  # p_val_adj scales everything using the bonferroni correction
                 lab=rownames(markers),
                 title = paste(gene, 'Positive vs. Negative', cell_type),
                 # ylab =  bquote(~-Log[10] ~ italic(adjusted P)),
                 subtitle = NULL,
-                # pCutoff = 1e-05,  # default
+                # pCutoff = 1e-05,  # default  # can adjust this dynamically to include some genes
                 FCcutoff = 1
             )
         }, warning = function(w) {
@@ -410,7 +414,7 @@ draw_differential_genes <- function(
     if (include_pseudo_bulk) {
 
         pseudo_bulk <- AggregateExpression(
-            seurat_obj,
+            seurat_obj[items_in_a_not_b(rownames(seurat_obj[['RNA']]), gene), ],
             assays = "RNA",
             return.seurat = TRUE,
             group.by = c("sample_name", "gene_cell_type"),
