@@ -382,6 +382,10 @@ draw_differential_genes <- function(
             test.use = "wilcox",  # note: LR gives similar results
             only.pos = FALSE
         )
+        p_cutoff <- compute_p_cutoff(
+            markers, n_genes=15,
+            fc_col='avg_log2FC', pval_col='p_val'
+        )
 
         withCallingHandlers({
             fig <- EnhancedVolcano(
@@ -392,7 +396,7 @@ draw_differential_genes <- function(
                 title = paste(gene, 'Positive vs. Negative', cell_type),
                 # ylab =  bquote(~-Log[10] ~ italic(adjusted P)),
                 subtitle = NULL,
-                # pCutoff = 1e-05,  # default  # can adjust this dynamically to include some genes
+                pCutoff = 10^(-p_cutoff),  # default
                 FCcutoff = 1
             )
         }, warning = function(w) {
@@ -439,7 +443,10 @@ draw_differential_genes <- function(
                 ident.2 = paste(cell_type, snake_to_title_case(gene_neg), sep=';'),
                 verbose = FALSE
             )
-            p_cutoff <- compute_p_cutoff(markers)
+            p_cutoff <- compute_p_cutoff(
+                markers, n_genes=15,
+                fc_col='log2FoldChange', pval_col='pvalue'  # default
+            )
 
             withCallingHandlers({
                 fig <- EnhancedVolcano(

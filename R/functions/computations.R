@@ -118,22 +118,33 @@ compute_gene_labels <- function(
 #' Compute pCutoff
 #'
 #' @description
-#' Adjust pCutoff so that we get around 10 genes on each side of the volcano
+#' Adjust pCutoff so that we get around 15 genes on each side of the volcano.
+#' Note: pvalues are base 10, fold changes are base 2
 #'
-compute_p_cutoff <- function(markers, n_genes=15) {
+compute_p_cutoff <- function(
+    markers,
+    n_genes=15,
+    fc_col='log2FoldChange',
+    pval_col='pvalue',
+    p_max=5,
+    p_min=1
+) {
 
-    markers[['log2fc_gte_1']] = as.integer(markers['log2FoldChange'] >= 1)
+    markers[['log2fc_gte_1']] = as.integer(markers[fc_col] >= 1)
     markers[is.na(markers['log2fc_gte_1']), ] <- 0
     num_degs <- sum(markers['log2fc_gte_1'])
+    if (num_degs == 0) {
+        return(p_min)
+    }
 
     p_cutoff = -log(
         quantile(
-            markers[(markers[['log2fc_gte_1']]==1), 'pvalue'],
-            probs = n_genes / num_degs
-        ), base=10)
+            markers[(markers[['log2fc_gte_1']]==1), pval_col],
+            probs = min(n_genes / num_degs, 1)
+        ), base=10)-0.1
 
-    if (p_cutoff > 5) {p_cutoff <- 5}
-    if (p_cutoff < 1) {p_cutoff <- 1}
+    if (p_cutoff > p_max) {p_cutoff <- p_max}
+    if (p_cutoff < p_min) {p_cutoff <- p_min}
 
     return(p_cutoff)
 }
