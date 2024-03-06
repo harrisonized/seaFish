@@ -20,7 +20,8 @@ import::here(file.path(wd, 'R', 'tools', 'list_tools.R'),
 import::here(file.path(wd, 'R', 'tools', 'text_tools.R'),
     'snake_to_title_case', 'title_to_snake_case', .character_only=TRUE)
 import::here(file.path(wd, 'R', 'functions', 'computations.R'),
-    'compute_cell_counts', 'compute_gene_labels', .character_only=TRUE)
+    'compute_cell_counts', 'compute_gene_labels', 'compute_p_cutoff',
+    .character_only=TRUE)
 import::here(file.path(wd, 'R', 'tools', 'plotting.R'),
     'plot_violin', 'plot_scatter', 'plot_waterfall', 'plot_bar', 'plot_heatmap',
     .character_only=TRUE)
@@ -438,6 +439,7 @@ draw_differential_genes <- function(
                 ident.2 = paste(cell_type, snake_to_title_case(gene_neg), sep=';'),
                 verbose = FALSE
             )
+            p_cutoff <- compute_p_cutoff(markers)
 
             withCallingHandlers({
                 fig <- EnhancedVolcano(
@@ -448,7 +450,7 @@ draw_differential_genes <- function(
                     title = paste(gene, 'Positive vs. Negative', cell_type),
                     subtitle = NULL,
                     # ylab =  bquote(~-Log[10] ~ italic(adjusted P)),
-                    # pCutoff = 1e-05,  # default
+                    pCutoff = 10^(-p_cutoff),  # default
                     FCcutoff = 1
                 )
             }, warning = function(w) {

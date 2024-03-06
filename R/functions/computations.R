@@ -12,6 +12,7 @@ import::here(file.path(wd, 'R', 'tools', 'text_tools.R'),
 ## compute_thresholds
 ## compute_cell_counts
 ## compute_gene_labels
+## compute_p_cutoff
 
 
 #' Compute Thresholds
@@ -111,4 +112,28 @@ compute_gene_labels <- function(
     )
 
     return(df) 
+}
+
+
+#' Compute pCutoff
+#'
+#' @description
+#' Adjust pCutoff so that we get around 10 genes on each side of the volcano
+#'
+compute_p_cutoff <- function(markers, n_genes=15) {
+
+    markers[['log2fc_gte_1']] = as.integer(markers['log2FoldChange'] >= 1)
+    markers[is.na(markers['log2fc_gte_1']), ] <- 0
+    num_degs <- sum(markers['log2fc_gte_1'])
+
+    p_cutoff = -log(
+        quantile(
+            markers[(markers[['log2fc_gte_1']]==1), 'pvalue'],
+            probs = n_genes / num_degs
+        ), base=10)
+
+    if (p_cutoff > 5) {p_cutoff <- 5}
+    if (p_cutoff < 1) {p_cutoff <- 1}
+
+    return(p_cutoff)
 }
