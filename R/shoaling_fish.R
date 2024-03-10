@@ -17,7 +17,7 @@ import::from(SingleR, 'SingleR')
 import::from(DropletUtils, 'emptyDrops')
 
 import::from(file.path(wd, 'R', 'tools', 'file_io.R'),
-    'read_10x', 'savefig', .character_only=TRUE)
+    'read_scrnaseq', 'savefig', .character_only=TRUE)
 import::from(file.path(wd, 'R', 'tools', 'list_tools.R'),
     'multiple_replacement', .character_only=TRUE)
 import::from(file.path(wd, 'R', 'tools', 'text_tools.R'),
@@ -144,7 +144,7 @@ for (group_name in group_names) {
             # ----------------------------------------------------------------------
             # Preprocessing
 
-            raw_mtx <- read_10x(file.path(wd, opt[['input-dir']], sample_name))
+            raw_mtx <- read_scrnaseq(file.path(wd, opt[['input-dir']], sample_name))
             c(num_features, num_cells) %<-% dim(raw_mtx)
             log_print(paste(
                 Sys.time(),'Matrix dims: [', num_features, 'features x', num_cells, 'cells]'

@@ -1,9 +1,11 @@
 # library('Matrix')
 wd = dirname(dirname(this.path::here()))
-import::here(Matrix, 'readMM')
+import::here(Matrix, 'Matrix', 'readMM')
 import::here(readr, 'read_tsv')
 import::here(ggplot2, 'ggsave', 'last_plot')
 import::here(grid, 'grid.newpage', 'grid.draw')
+import::here(file.path(wd, 'R', 'tools', 'df_tools.R'),
+    'set_index', .character_only=TRUE)
 import::here(file.path(wd, 'R', 'tools', 'list_tools.R'),
     'filter_list_for_match', .character_only=TRUE)
 
@@ -64,39 +66,78 @@ read_10x <- function(
     barcodes_file='barcodes.tsv'
 ) {
 
-    if (!file.exists(file.path(data_dir, matrix_file)) |
-        !file.exists(file.path(data_dir, genes_file)) |
-        !file.exists(file.path(data_dir, barcodes_file))) {
+    filenames = basename(list_files(data_dir))
 
-        filenames = basename(list_files(data_dir))
+    if (!file.exists(file.path(data_dir, matrix_file))) {
         matrix_file = filter_list_for_match(filenames, 'matrix')
+        expr_mtx <- Matrix::readMM(file.path(data_dir, matrix_file))
+    }
+
+    if (!file.exists(file.path(data_dir, barcodes_file))) {
+        barcodes_file = filter_list_for_match(filenames, 'barcodes')
+        barcodes <- read_tsv(file.path(data_dir, barcodes_file),
+            col_names=FALSE, show_col_types = FALSE)
+        colnames(expr_mtx) <- barcodes[['X1']]  # barcode sequence
+    }
+
+    if (!file.exists(file.path(data_dir, genes_file))) {
         genes_file = unlist(lapply(
             c('genes', 'features'),
             function(pattern) filter_list_for_match(filenames, pattern))
         )
-        barcodes_file = filter_list_for_match(filenames, 'barcodes')
+        genes <- read_tsv(file.path(data_dir, genes_file),
+            col_names=FALSE, show_col_types = FALSE
+        )
+        rownames(expr_mtx) <- genes[['X2']]  # gene names
     }
-
-    expr_mtx <- Matrix::readMM(file.path(data_dir, matrix_file))
-    genes <- read_tsv(file.path(data_dir, genes_file), col_names=FALSE, show_col_types = FALSE)
-    barcodes <- read_tsv(file.path(data_dir, barcodes_file), col_names=FALSE, show_col_types = FALSE)
-
-    colnames(expr_mtx) <- barcodes[['X1']]  # barcode sequence
-    rownames(expr_mtx) <- genes[['X2']]  # gene names
 
     # Return dgCMatrix instead of dgTMatrix
     # See: https://slowkow.com/notes/sparse-matrix/#the-triplet-format-in-dgtmatrix
-    expr_mtx <- as(expr_mtx, "CsparseMatrix")
-
-    # Note: the above is equivalent to this, but is more explicit
+    # Also see [Matrix::ReadMtx]
     # expr_mtx <- Matrix::ReadMtx(
     #     mtx=file.path(data_dir, matrix_file),
     #     cells=file.path(data_dir, barcodes_file),
     #     features=file.path(data_dir, genes_file),
     #     feature.column=2
     # )
+    expr_mtx <- as(expr_mtx, "CsparseMatrix")
 
     return(expr_mtx)
+}
+
+
+#' Read scRNAseq
+#'
+#' @description
+#' Filetype detection for scRNAseq data
+#'  
+read_scrnaseq <- function(data_dir) {
+
+    filenames = basename(list_files(data_dir))
+
+    if (length(filenames)==1) {
+        filetype <- 'tsv'
+    } else if (length(data_dir)==3) {
+        filetype <- '10x'
+    }
+
+    if (filetype=='tsv') {
+        df <- read.delim(file.path(data_dir, filenames[[1]]))
+
+        # if gene names are in the first column
+        if (all(rownames(df)[1:10] == 1:10)) {
+            index_col <- colnames(df)[[1]]
+            df <- set_index(df, index_col, drop=TRUE)
+        }
+
+        expr_mtx <- as(Matrix(as.matrix(df)), "CsparseMatrix")
+    }
+
+    if (filetype=='10x') {
+        expr_mtx <- read_10x(data_dir)
+    }
+
+    return(expr_mtx)   
 }
 
 
