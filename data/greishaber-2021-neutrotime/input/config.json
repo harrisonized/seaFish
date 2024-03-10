@@ -1,0 +1,6 @@
+{
+  "blood": ["blood-1", "blood-2"],
+  "bm": ["bm-1", "bm-2"],
+  "spleen": ["spleen-1", "spleen-2"],
+  "inflammation": ["blood-unstim", "blood-KBxN", "joint-KBxN", "lung-IL1", "peritoneum-IL1"]
+}

@@ -1,9 +1,11 @@
 ## Functions
 ## fillna
+## matrix_to_dataframe
 ## smelt
 ## set_index
 ## reset_index
 ## rev_df
+## dgCMatrix_to_dataframe
 
 
 #' Fill specific column with NA
@@ -31,6 +33,15 @@ fillna <- function(df, cols, val=0, inplace=FALSE) {
     } else {
         return(df)
     }
+}
+
+
+#' Matrix to Dataframe
+#'
+matrix_to_dataframe <- function(
+    matrix
+) {
+    return (as.data.frame(as.matrix(expr_mtx)))
 }
 
 

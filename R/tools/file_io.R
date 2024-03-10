@@ -12,8 +12,11 @@ import::here(file.path(wd, 'R', 'tools', 'list_tools.R'),
 ## Functions
 ## list_files
 ## load_rdata
+## read_counts_data
 ## read_10x
+## read_scrnaseq
 ## savefig
+## write_gz
 
 
 #' List all files with a specific extension
@@ -47,6 +50,28 @@ list_files <- function(dir_path, ext=NULL, recursive = TRUE) {
 load_rdata <- function(filepath){
     load(filepath)
     return( get(ls()[ls() != "filepath"]) )
+}
+
+
+#' Read Counts Data
+#'
+#' @description Use this for single cell data contained in individual tsv files
+#' 
+read_counts_data <- function(filepath, as.matrix=TRUE) {
+    df <- read.delim(filepath)
+
+    # if gene names are in the first column
+    if (all(rownames(df)[1:10] == 1:10)) {
+        index_col <- colnames(df)[[1]]
+        df <- set_index(df, index_col, drop=TRUE)
+    }
+
+    if (as.matrix) {
+        expr_mtx <- as(Matrix(as.matrix(df)), "CsparseMatrix")
+        return(expr_mtx)
+    } else {
+        return(df)
+    }
 }
 
 
@@ -115,22 +140,17 @@ read_scrnaseq <- function(data_dir) {
 
     filenames = basename(list_files(data_dir))
 
+    # determine filetype
     if (length(filenames)==1) {
         filetype <- 'tsv'
     } else if (length(data_dir)==3) {
         filetype <- '10x'
     }
 
+    # read data
+
     if (filetype=='tsv') {
-        df <- read.delim(file.path(data_dir, filenames[[1]]))
-
-        # if gene names are in the first column
-        if (all(rownames(df)[1:10] == 1:10)) {
-            index_col <- colnames(df)[[1]]
-            df <- set_index(df, index_col, drop=TRUE)
-        }
-
-        expr_mtx <- as(Matrix(as.matrix(df)), "CsparseMatrix")
+        expr_mtx <- read_counts_data(file.path(data_dir, filenames[[1]]))
     }
 
     if (filetype=='10x') {
@@ -194,4 +214,19 @@ savefig <- function(
             warning(paste0("lib='", lib, "' not found"))
         }
     }
+}
+
+
+#' Write gz file
+#'
+write_gz <- function(df, filepath, sep='\t'){
+
+    # make directory
+    dirpath <- dirname(filepath)
+    if (!dir.exists(dirpath)) {
+        dir.create(dirpath, recursive=TRUE)
+    }
+
+    write.table(df, file = filepath, row.names = TRUE, sep = sep)
+    system(paste("gzip -9", filepath))
 }
