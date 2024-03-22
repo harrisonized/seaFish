@@ -3,6 +3,7 @@ import::here(stringi, 'stri_replace_all_regex')
 ## Functions
 ## chunker
 ## collate
+## dict_zip
 ## filter_list_for_match
 ## items_in_a_not_b
 ## multiple_replacement
@@ -46,6 +47,21 @@ collate <- function(array_obj, num_groups=2) {
         collated[[group_idx]] <- array_obj[seq(group_idx, length(array_obj), num_groups)]
     }
     return(collated)
+}
+
+
+#' Dictionary
+#' 
+#' @description Simple dictionary implementation using R environment
+#'
+#' @export
+dict_zip <- function(keys, values) {
+    if (!is.list(values)) {
+        values <- as.list(values)
+    }
+    named_list <- setNames(values, keys)
+    env <- list2env(named_list)
+    return(env)
 }
 
 
