@@ -143,7 +143,7 @@ read_scrnaseq <- function(data_dir) {
     # determine filetype
     if (length(filenames)==1) {
         filetype <- 'tsv'
-    } else if (length(data_dir)==3) {
+    } else if (length(filenames)>=3) {
         filetype <- '10x'
     }
 

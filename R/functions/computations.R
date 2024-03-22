@@ -65,6 +65,7 @@ compute_cell_counts <- function(
         (seurat_obj[["RNA"]]@counts[gene, ] >= min_reads),
         'num_cells_pos', 'num_cells_neg'
     )
+
     cell_counts <- as.data.frame(table(
         seurat_obj@meta.data[, c('cell_type', gene_pos)])) %>%
         pivot_wider(
@@ -73,6 +74,11 @@ compute_cell_counts <- function(
             values_from='Freq') %>%
         as.data.frame()
 
+    # bugfix
+    if (!('num_cells_pos' %in% colnames(cell_counts))) {
+        cell_counts[['num_cells_pos']] <- 0
+    }
+    
     cell_counts['num_cells_total'] <- cell_counts['num_cells_neg'] + cell_counts['num_cells_pos']
     cell_counts['pct_cells_pos'] <- cell_counts['num_cells_pos'] / cell_counts['num_cells_total']
     
