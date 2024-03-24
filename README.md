@@ -30,16 +30,16 @@ I developed this package on an Apple M1 Pro. In order to compile some packages, 
 
 | Package | Version | Install Command          | Comments |
 | :------ | ------- | ------------------------ | -------- |
-| dplyr   | 1.1.2   | install.packages()       |
+| dplyr   | 1.1.2   | install.packages()       | |
 | Seurat  | 4.3.0.1 | remotes::install_version() | |
-| Matrix  | 1.6-1   | remotes::install_version() | This is required for RunUMAP(). Higher versions break the `irlba` package.
+| Matrix  | 1.6-1   | remotes::install_version() | This is required for RunUMAP(). Higher versions break the `irlba` package. |
 | SingleR | 2.2.0   | BiocManager::install()   | |
 | celldex | 1.10.1  | BiocManager::install()   | |
 | DropletUtils | 1.10.1 | BiocManager::install() | |
 | DESeq2  | 1.40.2  | BiocManager::install()   | |
 | SeuratData | 0.2.2 | devtools::install_github('satijalab/seurat-data@d6a8ce6') | |
 | ifnb.SeuratData | 3.1.0 | SeuratData::InstallData("ifnb") | If the code exits out, set SeuratData::options(timeout = 240). |
-| EnhancedVolcano | 1.18.0 | BiocManager::install() |
+| EnhancedVolcano | 1.18.0 | BiocManager::install() | |
 
 
 ## Copyright
