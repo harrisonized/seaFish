@@ -264,9 +264,28 @@ for (group_name in group_names) {
         log_print(paste(Sys.time(), 'Integrating data...'))
 
         # integrate
-        features_list <- SelectIntegrationFeatures(object.list = seurat_objs, nfeatures = 2000)
+        features <- SelectIntegrationFeatures(object.list = seurat_objs, nfeatures = 2000)
         withCallingHandlers({
-            anchors <- FindIntegrationAnchors(object.list = seurat_objs, anchor.features = features_list)
+            if (length(seurat_objs) <= 3) {
+                anchors <- FindIntegrationAnchors(
+                    object.list = seurat_objs,
+                    anchor.features = features,
+                    reduction='cca'  # default
+                )
+            } else {
+                # See: https://satijalab.org/seurat/archive/v4.3/integration_large_datasets
+                seurat_objs <- lapply(seurat_objs, function(x) {
+                    ndim = 30  # standard
+                    x <- ScaleData(x, features = features, verbose = FALSE)
+                    x <- RunPCA(x, features = features, npcs = ndim, verbose = FALSE)
+                })
+                anchors <- FindIntegrationAnchors(
+                    object.list = seurat_objs,
+                    anchor.features = features,
+                    reference = c(1),
+                    reduction='rpca'  # faster
+                )
+            }
         }, warning = function(w) {
             if ( any(grepl("Some cell names are duplicated", w)) ) {
                 invokeRestart("muffleWarning")
