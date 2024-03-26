@@ -7,7 +7,7 @@ With high "efficiency," we use this pipeline to search for "a fish in the sea." 
 
 | Script Number | Script Name | Description |
 | :------------ | ----------- | ----------- |
-| 1 | shoaling\_fish.R | This script performs basic qc filtering, integrates the data as defined by the config.json files,  and uses SingleR to label the clusters in an unbiased way. It outputs a variety of figures and the .RData file to be used downstream. |
+| 1 | sea\_turtle.R | This script performs basic qc filtering, integrates the data as defined by the config.json files,  and uses SingleR to label the clusters in an unbiased way. It outputs a variety of figures and the .RData file to be used downstream. |
 | 2 | finding\_nemo.R | This script visualizes your gene of interest using the .RData file output by R/shoal\_formation.R. This is a relatively fast script. |
 | 3 | arribada.R | Parallelizes shoal_formation, since this takes some time. |
 | 4 | aquarium.R  | Shiny app. Very basic visualizations at the moment. At some point once I finalize what figures I consider to be standard, I will build this out. |

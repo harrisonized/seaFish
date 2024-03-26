@@ -1,7 +1,7 @@
 ## Every fall, thousands of sea turtles arrive on the shores of Costa Rica to
 ## synchronously lay millions of eggs in an event known as the arribada,
 ## Spanish for "arrival by sea." This script is an orchestrator that
-## synchronously runs shoal_formation.R.
+## synchronously runs sea_turtle.R.
 
 wd = dirname(this.path::here())  # wd = '~/github/R/seaFish'
 library('parallel')
@@ -122,7 +122,7 @@ commands <- new.env()
 for (idx in 1:length(grouped_idxs)) {
 
     command <- paste(
-        'Rscript R/shoaling_fish.R',
+        'Rscript R/sea_turtle.R',
             '-i', opt[['input-dir']],
             '-o', opt[['output-dir']],
             '-j', opt[['config']],

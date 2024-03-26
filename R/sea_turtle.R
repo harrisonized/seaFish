@@ -1,5 +1,8 @@
-## Shoals are groups of fish that aggregate together, but are not yet synchronized.
-## This script performs data integration, clustering, and unbiased labeling of clusters.
+## Sea turtles are generally solitary creatures, only gathering together to mate.
+## In scRNAseq, although each sample is collected independently, projecting them
+## onto the same embedding (ie. UMAP) greatly reduces potential batch effects.
+## This script performs data integration, clustering, and unbiased labeling.
+## 
 ## References:
 ## https://satijalab.org/seurat/archive/v4.3/integration_introduction
 ## https://satijalab.org/seurat/articles/pbmc3k_tutorial.html
@@ -91,7 +94,7 @@ figures_dir <- multiple_replacement(
 
 # Start Log
 start_time <- Sys.time()
-log <- log_open(paste0("shoaling_fish-", random_hash(), '-',
+log <- log_open(paste0("sea_turtle-", random_hash(), '-',
                        strftime(start_time, format="%Y%m%d_%H%M%S"), '.log'))
 log_print(paste('Script started at:', start_time))
 
