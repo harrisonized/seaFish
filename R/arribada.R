@@ -51,9 +51,9 @@ option_list = list(
                 metavar="collate", type="character",
                 help="choose from 'collate' or 'chunk'"),
 
-    make_option(c("-n", "--num"), default=4,
-                metavar="4", type="integer",
-                help="enter a number"),
+    make_option(c("-n", "--num-instances"), default=10,
+                metavar="10", type="integer",
+                help="enter number of instances, can go up to the number of cores"),
 
     make_option(c("-t", "--troubleshooting"), default=FALSE, action="store_true",
                 metavar="FALSE", type="logical",
@@ -105,9 +105,9 @@ if (opt[['slice']] != '') {
 }
 
 if (opt[['group-option']]=='collate') {
-    grouped_idxs <- collate(idxs, opt[['num']])
+    grouped_idxs <- collate(idxs, opt[['num-instances']])
 } else if (opt[['group-option']]=='chunk') {
-    grouped_idxs <- chunker(idxs, opt[['num']])
+    grouped_idxs <- chunker(idxs, opt[['num-instances']])
 } else {
     stop("Choose a valid method: 'collate' or 'chunk'")
 }
