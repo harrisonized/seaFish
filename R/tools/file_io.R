@@ -94,7 +94,10 @@ read_10x <- function(
     filenames = basename(list_files(data_dir))
 
     if (!file.exists(file.path(data_dir, matrix_file))) {
-        matrix_file = filter_list_for_match(filenames, 'matrix')
+        matrix_file = unlist(lapply(
+            c('matrix', 'counts'),
+            function(pattern) filter_list_for_match(filenames, pattern))
+        )
         expr_mtx <- Matrix::readMM(file.path(data_dir, matrix_file))
     }
 
@@ -107,12 +110,17 @@ read_10x <- function(
 
     if (!file.exists(file.path(data_dir, genes_file))) {
         genes_file = unlist(lapply(
-            c('genes', 'features'),
+            c('gene', 'feature'),
             function(pattern) filter_list_for_match(filenames, pattern))
         )
         genes <- read_tsv(file.path(data_dir, genes_file),
             col_names=FALSE, show_col_types = FALSE
         )
+        if (ncol(genes) > 1) {
+            rownames(expr_mtx) <- genes[, 2][[1]]
+        } else {
+            rownames(expr_mtx) <- genes[, 1][[1]]
+        }
         rownames(expr_mtx) <- genes[['X2']]  # gene names
     }
 
