@@ -1,5 +1,6 @@
 # library('Matrix')
 wd = dirname(dirname(this.path::here()))
+import::here(Seurat, 'Read10X_h5')
 import::here(Matrix, 'Matrix', 'readMM')
 import::here(readr, 'read_tsv')
 import::here(ggplot2, 'ggsave', 'last_plot')
@@ -149,20 +150,30 @@ read_scrnaseq <- function(data_dir) {
     filenames = basename(list_files(data_dir))
 
     # determine filetype
-    if (length(filenames)==1) {
-        filetype <- 'tsv'
-    } else if (length(filenames)>=3) {
+    if (length(filenames)>=3) {
         filetype <- '10x'
+    } else if (length(filenames)==1) {
+        filename <- filenames[[1]]
+        file_ext <- tools::file_ext(filename)
+        if (file_ext=='h5') {
+            filetype <- 'h5'
+        } else {
+            filetype <- 'tsv'
+        }
     }
 
     # read data
-
-    if (filetype=='tsv') {
-        expr_mtx <- read_counts_data(file.path(data_dir, filenames[[1]]))
-    }
-
     if (filetype=='10x') {
         expr_mtx <- read_10x(data_dir)
+    }
+    if (filetype=='h5') {
+        expr_mtx <- Read10X_h5(file.path(data_dir, filename))
+        if (length(expr_mtx) > 1) {
+            expr_mtx <- expr_mtx[[1]]
+        }
+    }
+    if (filetype=='tsv') {
+        expr_mtx <- read_counts_data(file.path(data_dir, filename))
     }
 
     return(expr_mtx)   

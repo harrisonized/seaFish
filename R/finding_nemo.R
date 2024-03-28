@@ -84,7 +84,9 @@ if (file.exists(config_file)) {
     log_print(paste(Sys.time(), 'Reading config...'))
     config <- fromJSON(file=config_file)
     group_names <- names(config)
-    filenames <- sapply(group_names, function(x) paste0("seurat_obj-integrated-", x, ".RData"))
+    multiplicities <- sapply(config, function(x) ifelse(length(x)>1, 'integrated-', ''))
+    filenames <- paste0("seurat_obj-", paste0(multiplicities, group_names), ".RData")
+    names(filenames) <- group_names
 } else {
     filenames <- list.files(file.path(wd, output_dir, 'rdata'))
     group_names <- sub('.RData', '',
@@ -119,6 +121,7 @@ for (group_name in group_names) {
         seurat_obj <- load_rdata(filepath=filepath)
 
         multiplicity <- str_extract(filename, "(integrated|individual)")
+        multiplicity <- ifelse(is.na(multiplicity), 'individual', 'integrated')
         is_integrated <- ifelse(multiplicity=='integrated', TRUE, FALSE)
         prefix <- ifelse(is_integrated, 'integrated-', '')
         
