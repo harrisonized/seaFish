@@ -1,4 +1,4 @@
-## Use this to find your gene of interest
+## Find your gene of interest
 
 wd = dirname(this.path::here())  # wd = '~/github/R/seaFish'
 suppressPackageStartupMessages(library('Seurat'))
@@ -140,6 +140,7 @@ for (group_name in group_names) {
                 data_dir=output_dir,
                 figures_dir=figures_dir,
                 file_basename=paste0(prefix, group_name),
+                include_table=TRUE,
                 include_volcano=opt[['volcano']],
                 include_pseudo_bulk=TRUE,
                 troubleshooting=troubleshooting,
@@ -162,6 +163,7 @@ for (group_name in group_names) {
                 figures_dir=figures_dir,
                 figures_subdir='subset',
                 file_basename=paste0(prefix, group_name, '-subset'),
+                include_table=FALSE,
                 include_volcano=FALSE,
                 include_pseudo_bulk=FALSE,
                 troubleshooting=troubleshooting,
@@ -187,6 +189,7 @@ for (group_name in group_names) {
                 data_dir=output_dir,
                 figures_dir=figures_dir,
                 file_basename=sample_name,
+                include_table=TRUE,
                 include_volcano=opt[['volcano']],
                 include_pseudo_bulk=FALSE,
                 troubleshooting=troubleshooting,

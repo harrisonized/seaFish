@@ -1,5 +1,5 @@
 import::here(file.path(wd, 'R', 'functions', 'computations.R'),
-    'compute_cell_counts', .character_only=TRUE)
+    'compute_gene_expression', .character_only=TRUE)
 import::here(file.path(wd, 'R', 'functions', 'draw_plots.R'),
     'draw_qc_plots', 'draw_clusters', 'draw_gene_of_interest',
     'draw_differential_genes', .character_only=TRUE)
@@ -59,6 +59,7 @@ export_gene_of_interest <- function(
     figures_dir='figures/output',
     figures_subdir='',
     file_basename='SeuratProject',
+    include_table=TRUE,
     include_volcano=TRUE,
     include_pseudo_bulk=FALSE,
     troubleshooting=FALSE,
@@ -66,14 +67,16 @@ export_gene_of_interest <- function(
 ) {
 
     # gene-of-interest by cell-type csv
-    cell_counts <- compute_cell_counts(seurat_obj, gene=gene, ident='cell_type')
-    filepath=file.path(
-        wd, data_dir, 'expression', tolower(gene), multiplicity,
-        paste0('cell_type-', file_basename, '-', tolower(gene), '.csv')
-    )
-    if (!troubleshooting) {
-        if ( !dir.exists(dirname(filepath)) ) { dir.create(dirname(filepath), recursive=TRUE) }
-        write.table(cell_counts, file = filepath, row.names = FALSE, sep = ',')
+    if (include_table) {
+        expr_tbl <- compute_gene_expression(seurat_obj, gene=gene, ident='cell_type')
+        filepath=file.path(
+            wd, data_dir, 'expression', tolower(gene), multiplicity,
+            paste0('cell_type-', file_basename, '-', tolower(gene), '.csv')
+        )
+        if (!troubleshooting) {
+            if ( !dir.exists(dirname(filepath)) ) { dir.create(dirname(filepath), recursive=TRUE) }
+            write.table(expr_tbl, file = filepath, row.names = FALSE, sep = ',')
+        }
     }
 
     draw_gene_of_interest(

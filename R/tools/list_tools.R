@@ -7,6 +7,7 @@ import::here(stringi, 'stri_replace_all_regex')
 ## filter_list_for_match
 ## items_in_a_not_b
 ## multiple_replacement
+## replace_specific_items
 
 
 #' Chunker
@@ -136,4 +137,27 @@ multiple_replacement <- function(items, replace_dict) {
     )
 
     return (items)
+}
+
+
+#' Replaces each item in a list or vector with all replacements
+#' 
+#' @description Use this to rename columns
+#' 
+#' @param items list or vector
+#' @param replacements a named list of replacements. uses names to match and values to replace.
+#' @return Returns a vector with replaced items
+#' 
+#' @examples
+#' replace_specific_items(c('a', 'b', 'c'), c('a'="A", 'c'="C"))
+#' 
+#' @seealso [multiple_replacement()]
+#' 
+#' @export
+replace_specific_items <- function(items, replacements) {
+    replace_ids <- which(items %in% intersect(names(replacements), items))
+    for (idx in replace_ids) {
+        items[idx] <- replacements[items[idx]]
+    }
+    return(items)
 }

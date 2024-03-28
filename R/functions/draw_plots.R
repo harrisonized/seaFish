@@ -20,7 +20,7 @@ import::here(file.path(wd, 'R', 'tools', 'list_tools.R'),
 import::here(file.path(wd, 'R', 'tools', 'text_tools.R'),
     'snake_to_title_case', 'title_to_snake_case', .character_only=TRUE)
 import::here(file.path(wd, 'R', 'functions', 'computations.R'),
-    'compute_cell_counts', 'compute_gene_labels', 'compute_p_cutoff',
+    'compute_gene_expression', 'compute_gene_labels', 'compute_p_cutoff',
     .character_only=TRUE)
 import::here(file.path(wd, 'R', 'tools', 'plotting.R'),
     'plot_violin', 'plot_scatter', 'plot_waterfall', 'plot_bar', 'plot_heatmap',
@@ -275,7 +275,7 @@ draw_gene_of_interest <- function(
     # ----------------------------------------------------------------------
     # Figure 5. Bar plot
 
-    cell_counts <- compute_cell_counts(seurat_obj, gene=gene, ident='cell_type')
+    cell_counts <- compute_gene_expression(seurat_obj, gene=gene, ident='cell_type')
 
     value_cols = c('num_cells_neg', 'num_cells_pos')
     cell_counts_long <- cell_counts %>%
@@ -362,14 +362,14 @@ draw_differential_genes <- function(
     seurat_obj[['gene_cell_type']] <- df[['gene_cell_type']]
     Idents(seurat_obj) <- df[['gene_cell_type']]
     
-    cell_counts <- compute_cell_counts(seurat_obj, gene=gene, min_reads=1, ident='cell_type')
+    expr_tbl <- compute_gene_expression(seurat_obj, gene=gene, min_reads=1, ident='cell_type')
 
     # ----------------------------------------------------------------------
     # Figure 1. DEG analysis on single cell
 
     # only export groups with sufficient cells
-    cell_types <- cell_counts[
-        (cell_counts['num_cells_pos'] >= 50), 'cell_type'
+    cell_types <- expr_tbl[
+        (expr_tbl['num_cells_pos'] >= 50), 'cell_type'
     ]
     for (cell_type in cell_types) {
 

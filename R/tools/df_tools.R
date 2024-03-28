@@ -1,8 +1,12 @@
+import::here(file.path(wd, 'R', 'tools', 'list_tools.R'),
+    'replace_specific_items', .character_only=TRUE)
+
 ## Functions
 ## fillna
 ## matrix_to_dataframe
 ## smelt
 ## set_index
+## rename_columns
 ## reset_index
 ## rev_df
 ## dgCMatrix_to_dataframe
@@ -84,6 +88,30 @@ set_index <- function(df, colname, drop=TRUE) {
         df <- df[, !names(df)==colname]
     }
     return(df)
+}
+
+
+#' Rename dataframe columns
+#' 
+#' @description This is a thin wrapper around replace_specific_items that acts on dataframe columns
+#' 
+#' @param df a dataframe
+#' @param columns a named list of replacements. uses names to match and values to replace
+#' @param inplace TRUE allows you to avoid re-assigning the variable
+#' @return Returns a dataframe.
+#' 
+#' @examples
+#' head(rename_columns(mtcars, c('mpg'="MPG", 'disp'="DISP")))
+#' 
+#' @export
+rename_columns <- function(df, columns, inplace=FALSE) {
+    df_name <- deparse(substitute(df))
+    colnames(df) <- replace_specific_items(colnames(df), columns)
+    if (inplace) {
+        assign(df_name, df, envir=.GlobalEnv)
+    } else {
+        return(df)
+    }
 }
 
 
