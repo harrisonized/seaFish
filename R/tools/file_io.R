@@ -12,6 +12,7 @@ import::here(file.path(wd, 'R', 'tools', 'list_tools.R'),
 
 ## Functions
 ## list_files
+## append_many_csv
 ## load_rdata
 ## read_counts_data
 ## read_10x
@@ -37,6 +38,24 @@ list_files <- function(dir_path, ext=NULL, recursive = TRUE) {
     } else {
         return (all_files)
     }
+}
+
+
+#' Aggregate csv files by appending them rowwise
+#' 
+#' @description
+#' Read all the csv files from a directory and append them into a single dataframe
+#' 
+#' @export
+append_many_csv <- function(filepaths, sep=',', row_names=NULL) {
+    csv <- lapply(filepaths,
+        function(x) {
+            df <- read.csv(x, sep=sep, row.names=row_names)
+            df[['filepath']] <- x
+            return(df)
+        })
+    data <- do.call(rbind, csv)
+    return(data)
 }
 
 

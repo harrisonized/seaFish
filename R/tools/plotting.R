@@ -4,13 +4,15 @@ import::here(ggplot2,
     'ggplot', 'aes', 'aes_string', 'theme', 'theme_bw', 'labs', 
     'geom_violin', 'geom_boxplot', 'geom_jitter', 'geom_tile', 'geom_text',
     'geom_point', 'geom_hline', 'geom_vline', 'geom_segment', 'geom_bar',
-    'guides', 'guide_axis', 'guide_legend',
-    'xlim', 'ylim', 'coord_fixed', 'scale_fill_gradient',
+    'guides', 'guide_axis', 'guide_legend', 'guide_colorbar',
+    'xlim', 'ylim', 'coord_fixed', 'scale_fill_gradient', 'scale_radius',
     'scale_x_log10', 'scale_y_log10', 'scale_x_discrete', 'scale_y_discrete',
-    'annotate', 'element_text', 'element_blank')
+    'scale_color_gradient', 'scale_colour_gradientn',
+    'annotate', 'element_text', 'element_blank', 'margin', 'unit')
 import::here(scales, 'trans_breaks', 'trans_format', 'math_format')
 import::here(cowplot, theme_cowplot)
 import::here(patchwork, 'wrap_plots', 'plot_layout')
+import::here(RColorBrewer, 'brewer.pal')
 import::here(file.path(wd, 'R', 'tools', 'list_tools.R'),
     'filter_list_for_match', .character_only=TRUE)
 import::here(file.path(wd, 'R', 'tools', 'df_tools.R'),
@@ -19,6 +21,7 @@ import::here(file.path(wd, 'R', 'tools', 'df_tools.R'),
 
 ## Functions
 ## plot_bar
+## plot_dotplot
 ## plot_scatter
 ## plot_violin
 ## plot_volcano
@@ -76,6 +79,55 @@ plot_bar <- function(
         scale_x_discrete( guide=guide_axis(angle = xaxis_angle) ) +
         theme(legend.position=legend_position) +
         guide
+
+    return(fig)
+}
+
+
+#' Plot a Dot Plot
+#' 
+#' @description Plot a Dot Plot
+#' 
+#' @references
+#' \href{https://satijalab.org/seurat/reference/dotplot}{Seurat}
+#' 
+plot_dotplot <- function(df,
+    x='id',
+    y='cell_type',
+    size='pct_cells_pos',
+    color='avg_expression',
+    xlabel=NULL,
+    ylabel=NULL,
+    title=NULL,
+    xaxis_angle=90,
+    dot_scale=4,
+    xtick_size=5,
+    ytick_size=6,
+    title_size=10,
+    legend_size=7,
+    legend_title='Percent Expressed',
+    colorbar_title='Average Expression'
+) {
+
+    fig <- ggplot(data=df, mapping=aes(x=.data[[x]], y =.data[[y]])) +
+        geom_point(mapping=aes(size=.data[[size]], color=.data[[color]])) +
+        scale_radius(range=c(0, dot_scale)) +
+        labs(x=xlabel, y=ylabel, title=title) +
+        scale_x_discrete(guide=guide_axis(angle=xaxis_angle)) +
+        scale_y_discrete(limits=rev) +
+        scale_colour_gradientn(colours = rev(brewer.pal(n = 10, name = "RdBu"))) +
+        # scale_color_gradient(low="lightgrey", high="blue") +
+        theme_bw() +
+        theme(axis.text.x = element_text(size=xtick_size),
+              axis.text.y = element_text(size=ytick_size),
+              plot.title = element_text(size=title_size),
+              legend.title = element_text(size = legend_size),
+              legend.text = element_text(size = legend_size),
+              legend.key.size = unit(5, 'mm'),
+              legend.margin=margin(c(10, 0, -5, 0))
+              ) +
+        guides(size = guide_legend(title = legend_title),
+               color = guide_colorbar(title = colorbar_title))
 
     return(fig)
 }
