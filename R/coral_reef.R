@@ -5,9 +5,10 @@ wd = dirname(this.path::here())  # wd = '~/github/R/seaFish'
 library('optparse')
 library('logr')
 
+import::from(rjson, 'fromJSON', 'toJSON')
 import::from(stringr, 'str_match')
 import::from(file.path(wd, 'R', 'tools', 'list_tools.R'),
-    'multiple_replacement', .character_only=TRUE)
+    'items_in_a_not_b', 'multiple_replacement', .character_only=TRUE)
 import::from(file.path(wd, 'R', 'tools', 'file_io.R'),
     'append_many_csv', 'savefig', .character_only=TRUE)
 import::from(file.path(wd, 'R', 'tools', 'plotting.R'),
@@ -31,6 +32,18 @@ option_list = list(
                 metavar='figures', type="character",
                 help="set the figures directory"),
 
+    make_option(c("-j", "--config"), default='config.json',
+                metavar='config.json', type="character",
+                help="json file containing group information"),
+
+    make_option(c("-l", "--height"), default=1600,
+                metavar="1600", type="integer",
+                help="height in px"),
+
+    make_option(c("-w", "--width"), default=3600,
+                metavar="3200", type="integer",
+                help="width in px, max width is 200000"),
+
     make_option(c("-g", "--gene-of-interest"), default="Dnase1l1",
                 metavar="Dnase1l1", type="character",
                 help="choose a gene"),
@@ -50,28 +63,70 @@ output_dir <- opt[['output-dir']]
 figures_dir <- opt[['figures-dir']]
 multiplicity <- 'integrated'
 
-
 # Start Log
 start_time <- Sys.time()
 log <- log_open(paste0("coral_reef-",
     strftime(start_time, format="%Y%m%d_%H%M%S"), '.log'))
 log_print(paste('Script started at:', start_time))
 
+# ----------------------------------------------------------------------
+# Parse config
+
+config_file <- file.path(wd, opt[['input-dir']], opt[['config']])
+if (file.exists(config_file)) {
+    log_print(paste(Sys.time(), 'Reading config...'))
+    config <- fromJSON(file=config_file)
+    group_names <- names(config)
+
+    # parse config
+    # come back to this
+    ignore_list <- config[['_ignore']]
+    config <- config[1:length(config)-1]
+
+} else {
+    log_print(paste(Sys.time(), 'Generating config...'))
+    group_names <- list.dirs(
+        file.path(wd, opt[['input-dir']]),
+        full.names=FALSE, recursive=FALSE
+    )
+    group_names <- items_in_a_not_b(group_names, c('', 'archive', 'broken', 'data'))  # filter empty
+    config <- as.list(setNames(rep('integrated', length(group_names)), group_names))
+    config[['_ignore']] <- list()
+    if (!troubleshooting) {
+        write(toJSON(config), file=config_file)
+    }
+}
+
 
 # ----------------------------------------------------------------------
 # Main
 
-# read files
-all_files <- file.path('data', list.files(
-    file.path(wd, 'data'), pattern=paste0(tolower(gene), '.csv'),
-    recursive = TRUE, full.names = FALSE
-))
-relevant_files <- grep(
-    pattern=paste(
-        '[[:alnum:][:space:]-]', 'output', 'expression', tolower(gene), multiplicity,
-        sep='/'
-    ), all_files, value = TRUE)
-df <- append_many_csv(file.path(wd, relevant_files))
+
+# grep relevant files
+# all_files <- file.path('data', list.files(
+#     file.path(wd, 'data'), pattern=paste0(tolower(gene), '.csv'),
+#     recursive = TRUE, full.names = FALSE
+# ))
+# relevant_files <- grep(
+#     pattern=paste(
+#         '[[:alnum:][:space:]-]', 'output', 'expression', tolower(gene), multiplicity,
+#         sep='/'
+#     ), all_files, value = TRUE)
+
+
+# read files from config
+dirpaths <- sapply(
+    names(config), function(x) 
+    file.path(x, 'output/expression', tolower(gene), config[[x]]),
+    USE.NAMES=TRUE
+)
+relevant_files <- unlist(lapply(file.path(wd, 'data', dirpaths), function(x) list.files(
+    x, pattern=paste0(tolower(gene), '.csv'),
+    recursive = FALSE, full.names = TRUE
+)))
+tmp <- setNames(basename(relevant_files), relevant_files)
+relevant_files <- names(items_in_a_not_b(tmp, ignore_list))
+df <- append_many_csv(relevant_files)
 
 
 # extract metadata
@@ -80,7 +135,7 @@ df[['dataset']] <- sapply(df[['filepath']],
 )
 df[['sample_name']] <- sapply(df[['filepath']], 
     function(x) stringr::str_match(basename(x),
-        paste0('cell_type-integrated-', "(.*?)", '-', tolower(gene), '.csv'))[[2]]
+        paste0('(cell_type-integrated|cell_type)-', "(.*?)", '-', tolower(gene), '.csv'))[[3]]
 )
 df[['id']] <- paste(df[['dataset']], df[['sample_name']])  # x axis text
 
@@ -92,7 +147,7 @@ fig <- plot_dotplot(
 )
 if (!troubleshooting) {
     savefig(file.path(wd, figures_dir, paste0('dotplot-overview.png')),
-            height=1600, width=3200, dpi=800, 
+            height=opt[['height']], width=opt[['width']], dpi=800, 
             makedir=FALSE, troubleshooting=troubleshooting)    
 }
 
