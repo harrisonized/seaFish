@@ -14,6 +14,7 @@ import::from(file.path(wd, 'R', 'tools', 'file_io.R'),
 import::from(file.path(wd, 'R', 'tools', 'plotting.R'),
     'plot_dotplot', .character_only=TRUE)
 
+
 # ----------------------------------------------------------------------
 # Pre-script settings
 
@@ -61,13 +62,13 @@ gene <- opt[["gene-of-interest"]]
 input_dir <- opt[['input-dir']]
 output_dir <- opt[['output-dir']]
 figures_dir <- opt[['figures-dir']]
-multiplicity <- 'integrated'
 
 # Start Log
 start_time <- Sys.time()
 log <- log_open(paste0("coral_reef-",
     strftime(start_time, format="%Y%m%d_%H%M%S"), '.log'))
 log_print(paste('Script started at:', start_time))
+
 
 # ----------------------------------------------------------------------
 # Parse config
@@ -77,12 +78,6 @@ if (file.exists(config_file)) {
     log_print(paste(Sys.time(), 'Reading config...'))
     config <- fromJSON(file=config_file)
     group_names <- names(config)
-
-    # parse config
-    # come back to this
-    ignore_list <- config[['_ignore']]
-    config <- config[1:length(config)-1]
-
 } else {
     log_print(paste(Sys.time(), 'Generating config...'))
     group_names <- list.dirs(
@@ -97,41 +92,39 @@ if (file.exists(config_file)) {
     }
 }
 
-
-# ----------------------------------------------------------------------
-# Main
-
-
-# grep relevant files
-# all_files <- file.path('data', list.files(
-#     file.path(wd, 'data'), pattern=paste0(tolower(gene), '.csv'),
-#     recursive = TRUE, full.names = FALSE
-# ))
-# relevant_files <- grep(
-#     pattern=paste(
-#         '[[:alnum:][:space:]-]', 'output', 'expression', tolower(gene), multiplicity,
-#         sep='/'
-#     ), all_files, value = TRUE)
+# split out ignore_list
+ignore_list <- config[['_ignore']]
+config <- config[1:length(config)-1]
 
 
-# read files from config
-dirpaths <- sapply(
+# find files based on config
+search_dirs <- sapply(
     names(config), function(x) 
     file.path(x, 'output/expression', tolower(gene), config[[x]]),
     USE.NAMES=TRUE
 )
-relevant_files <- unlist(lapply(file.path(wd, 'data', dirpaths), function(x) list.files(
-    x, pattern=paste0(tolower(gene), '.csv'),
-    recursive = FALSE, full.names = TRUE
-)))
-tmp <- setNames(basename(relevant_files), relevant_files)
-relevant_files <- names(items_in_a_not_b(tmp, ignore_list))
-df <- append_many_csv(relevant_files)
+all_files <- unlist(lapply(
+    file.path(wd, 'data', search_dirs), function(x)
+        list.files(
+        x, pattern=paste0(tolower(gene), '.csv'),
+        recursive = FALSE, full.names = TRUE)
+))
+# remove ignored files
+relevant_files <- names(items_in_a_not_b(
+    setNames(basename(all_files), all_files),
+    ignore_list
+))
 
+
+# ----------------------------------------------------------------------
+# Main
+
+# read data
+df <- append_many_csv(relevant_files)
 
 # extract metadata
 df[['dataset']] <- sapply(df[['filepath']], 
-    function(x) stringr::str_match(x, paste(wd, 'data', "(.*?)", "output*", sep='/'))[[2]]
+    function(x) stringr::str_match(x, paste('data', "(.*?)", "output*", sep='/'))[[2]]
 )
 df[['sample_name']] <- sapply(df[['filepath']], 
     function(x) stringr::str_match(basename(x),
