@@ -45,7 +45,7 @@ option_list = list(
                 metavar="2000", type="integer",
                 help="width in px"),
 
-    make_option(c("-o", "--order"), default='xlabel_order.csv',
+    make_option(c("-r", "--order"), default='xlabel_order.csv',
                 metavar='xlabel_order.csv', type="character",
                 help="csv file containing a list"),
 
@@ -159,3 +159,64 @@ end_time = Sys.time()
 log_print(paste('Script ended at:', Sys.time()))
 log_print(paste("Script completed in:", difftime(end_time, start_time)))
 log_close()
+
+quit()
+
+
+# ----------------------------------------------------------------------
+# Scratch
+
+xlabel_order <- c(
+    "ballesteros-2020 bm",  # bone marrow
+    "ballesteros-2020 lung",
+    "ballesteros-2020 spleen",
+    "ballesteros-2020 pb",
+    "edwards-2020-muscle-injury d0",  # muscle
+    "edwards-2020-muscle-injury d3",
+    "justynski-2023-apoptosis-skin 24hr_wound_beds",  # skin
+    "justynski-2023-apoptosis-skin 48hr_wound_beds",
+
+    # lung
+    "moore-2023-lung-lps Homeostasis CD45",
+    "moore-2023-lung-lps LPS Day 3 CD45",
+    "moore-2023-lung-lps LPS Day 6 CD45",
+    "tomlinson-2023-staph LAC-infected WT", 
+    "tomlinson-2023-staph PBS-treated WT",
+    "kasmani-2023-flu Day_3_Young",  
+    "kasmani-2023-flu Day_9_Young",
+    "curras-alonso-2023-radiation Ctrl_1",
+    "curras-alonso-2023-radiation IR_17Gy_1M_1",
+    "curras-alonso-2023-radiation IR_17Gy_3M_1",
+    "curras-alonso-2023-radiation IR_17Gy_5M_1",
+
+    # CD45+ spleen
+    "dou-2024-pristane Wt_F",  
+    "dou-2024-pristane Wt_M",
+    "murao-2024-sepsis sham spleen",
+    "murao-2024-sepsis CLP spleen",
+
+    # peritoneum
+    "murao-2024-sepsis sham peritoneum",
+    "murao-2024-sepsis CLP peritoneum",
+    "santeford-2021-thioglycollate Young_control",
+    "santeford-2021-thioglycollate Old_control",
+    "lantz-2020-efferocytosis WT_Ctrl",
+    "lantz-2020-efferocytosis WT_2_hr",
+    "lantz-2020-efferocytosis WT_6_hr",
+
+    # kidney
+    "rudman-melnick-2020-aki control",  
+    "rudman-melnick-2020-aki day1",
+    "rudman-melnick-2020-aki day2",
+    "rudman-melnick-2020-aki day4",
+    "rudman-melnick-2020-aki day7_2",
+    "rudman-melnick-2020-aki day11_2",
+    "rudman-melnick-2020-aki day14_2"
+)
+
+if (!troubleshooting) {
+    write.table(xlabel_order,
+        file.path(wd, 'data', paste0('_', opt[['order']])),
+        sep=',', row.names=FALSE, col.names=FALSE
+    )
+}
