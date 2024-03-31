@@ -38,12 +38,16 @@ option_list = list(
                 help="json file containing group information"),
 
     make_option(c("-l", "--height"), default=1600,
-                metavar="1600", type="integer",
+                metavar="2000", type="integer",
                 help="height in px"),
 
-    make_option(c("-w", "--width"), default=3600,
-                metavar="3200", type="integer",
-                help="width in px, max width is 200000"),
+    make_option(c("-w", "--width"), default=3200,
+                metavar="2000", type="integer",
+                help="width in px"),
+
+    make_option(c("-o", "--order"), default='xlabel_order.csv',
+                metavar='xlabel_order.csv', type="character",
+                help="csv file containing a list"),
 
     make_option(c("-g", "--gene-of-interest"), default="Dnase1l1",
                 metavar="Dnase1l1", type="character",
@@ -131,13 +135,19 @@ df[['sample_name']] <- sapply(df[['filepath']],
         paste0('(cell_type-integrated|cell_type)-', "(.*?)", '-', tolower(gene), '.csv'))[[3]]
 )
 df[['id']] <- paste(df[['dataset']], df[['sample_name']])  # x axis text
+tmp <- df[(df[['num_cells_total']] >= 50), ]
+
+
+# order
+if (file.exists(file.path(wd, input_dir, opt[['order']]))) {
+    xlabel_order <- read.csv(file.path(wd, 'data', opt[['order']]), header=FALSE)[['V1']]
+    tmp <- tmp[(tmp[['id']] %in% xlabel_order), ]
+    tmp[['id']] <- factor(tmp[['id']], levels = xlabel_order)
+}
 
 
 # plot
-fig <- plot_dotplot(
-    df[(df[['num_cells_total']] >= 50), ],  # filter
-    title='Overview'
-)
+fig <- plot_dotplot(tmp, title=paste(gene, "Expresion"))
 if (!troubleshooting) {
     savefig(file.path(wd, figures_dir, paste0('dotplot-overview.png')),
             height=opt[['height']], width=opt[['width']], dpi=800, 

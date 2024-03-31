@@ -98,18 +98,20 @@ plot_dotplot <- function(df,
     color='avg_expression',
     xlabel=NULL,
     ylabel=NULL,
-    title=NULL,
-    xaxis_angle=90,
-    dot_scale=4,
-    xtick_size=5,
-    ytick_size=6,
+    title="Expression",
+    xaxis_angle=60,
+    dot_scale=3.5,
+    xtick_size=6,
+    ytick_size=7,
     title_size=10,
     legend_size=7,
     legend_title='Percent Expressed',
     colorbar_title='Average Expression'
 ) {
 
-    fig <- ggplot(data=df, mapping=aes(x=.data[[x]], y =.data[[y]])) +
+    fig <- ggplot(data=df, 
+            aes(x=.data[[x]],
+                y =.data[[y]]) ) +
         geom_point(mapping=aes(size=.data[[size]], color=.data[[color]])) +
         scale_radius(range=c(0, dot_scale)) +
         labs(x=xlabel, y=ylabel, title=title) +
@@ -124,7 +126,7 @@ plot_dotplot <- function(df,
               legend.title = element_text(size = legend_size),
               legend.text = element_text(size = legend_size),
               legend.key.size = unit(5, 'mm'),
-              legend.margin=margin(c(10, 0, -5, 0))
+              legend.margin=margin(c(20, 0, -5, 0))
               ) +
         guides(size = guide_legend(title = legend_title),
                color = guide_colorbar(title = colorbar_title))
