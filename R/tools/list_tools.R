@@ -5,6 +5,7 @@ import::here(stringi, 'stri_replace_all_regex')
 ## collate
 ## dict_zip
 ## filter_list_for_match
+## index_last_occurrence
 ## items_in_a_not_b
 ## multiple_replacement
 ## replace_specific_items
@@ -83,6 +84,20 @@ filter_list_for_match <- function(items, pattern) {
         items <- lapply(items, grep, pattern=pattern[[i]], value=TRUE)
     }
     return (unlist(items[!sapply(items, identical, character(0))]))  # remove character(0)
+}
+
+
+#' Index Last Occurrence
+#' 
+#' @description
+#' Returns a named list of the last occurrence of an item in a list
+#' 
+#' @examples
+#' index_last_occurrence(c('a', 'a', 'a', 'b', 'b', 'c'), c('a', 'b', 'c'))
+#' 
+index_last_occurrence <- function(items) {
+    indexes <- sort(tapply(seq_along(items), items, max))
+    return(indexes)
 }
 
 
