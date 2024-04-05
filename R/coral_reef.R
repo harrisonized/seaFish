@@ -8,7 +8,7 @@ library('logr')
 import::from(rjson, 'fromJSON', 'toJSON')
 import::from(stringr, 'str_match')
 import::from(file.path(wd, 'R', 'tools', 'list_tools.R'),
-    'items_in_a_not_b', 'multiple_replacement', .character_only=TRUE)
+    'items_in_a_not_b', .character_only=TRUE)
 import::from(file.path(wd, 'R', 'tools', 'file_io.R'),
     'append_many_csv', 'savefig', .character_only=TRUE)
 import::from(file.path(wd, 'R', 'tools', 'plotting.R'),

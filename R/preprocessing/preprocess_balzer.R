@@ -10,7 +10,7 @@ import::from(rjson, 'fromJSON')
 import::from(file.path(wd, 'R', 'tools', 'file_io.R'),
     'write_gz', .character_only=TRUE)
 import::from(file.path(wd, 'R', 'tools', 'list_tools.R'),
-    'index_last_occurrence', .character_only=TRUE)
+    'index_last_occurrence', 'multiple_replacement', .character_only=TRUE)
 
 # ----------------------------------------------------------------------
 # Pre-script settings
@@ -38,7 +38,7 @@ opt <- parse_args(opt_parser)
 troubleshooting <- opt[['troubleshooting']]
 
 # file io
-output_dir <- file.path(opt[['input-dir']], opt[['output-dir']])
+output_dir <- multiple_replacement(opt[['input-dir']], c('downloads'=opt[['output-dir']]))
 
 # Start Log
 start_time <- Sys.time()
@@ -59,7 +59,7 @@ name_from_id <- list2env(fromJSON(file=config_file))
 
 log_print(paste(Sys.time(), 'Reading data...'))
 counts <- readRDS(file.path(wd, opt[['input-dir']],
-    "GSE180420_EXPORTinhib_counts.rds")
+    "GSE180420_EXPORT_counts.rds")
 )
 
 # barcodes are provided in the following format: "norm1_AAACCTGAGATATGCA"
