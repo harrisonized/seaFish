@@ -147,7 +147,7 @@ if (file.exists(file.path(wd, input_dir, opt[['order']]))) {
 
 
 # plot
-fig <- plot_dotplot(tmp, title=paste(gene, "Expresion"))
+fig <- plot_dotplot(tmp, title=expression(paste(italic("Dnase1l1"), " Expression")))
 if (!troubleshooting) {
     savefig(file.path(wd, figures_dir, paste0('dotplot-overview.png')),
             height=opt[['height']], width=opt[['width']], dpi=800, 
