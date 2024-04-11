@@ -67,6 +67,10 @@ option_list = list(
                 metavar="FALSE", action="store_true", type="logical",
                 help="turn this on to plot heatmap of top markers"),
 
+    make_option(c("-f", "--human"), default=FALSE,
+                metavar="FALSE", action="store_true", type="logical",
+                help="default organism is mouse, turn this on for human datasets"),
+
     make_option(c("-s", "--slice"), default="",
                 metavar="", type="character",
                 help="enter comma separated list of indices"),
@@ -147,48 +151,61 @@ for (group_name in group_names) {
             # ----------------------------------------------------------------------
             # Preprocessing
 
-            raw_mtx <- read_scrnaseq(file.path(wd, opt[['input-dir']], sample_name))
-            c(num_features, num_cells) %<-% dim(raw_mtx)
-            log_print(paste(
-                Sys.time(),'Matrix dims: [', num_features, 'features x', num_cells, 'cells]'
-            ))
+            scrnaseq_obj <- read_scrnaseq(file.path(wd, opt[['input-dir']], sample_name))
 
-            # Filter empty drops
-            tryCatch({
-                drop_stats <- emptyDrops(raw_mtx)
-                filt_mtx <- raw_mtx[ ,
-                    (drop_stats[['FDR']] <= 0.05) &
-                    (is.na(drop_stats[['FDR']])==FALSE)
-                ]
-                c(num_features, num_cells) %<-% dim(filt_mtx)
-
-                log_print(paste(
-                    Sys.time(), 'Filtered Matrix dims: [', num_features, 'features x', num_cells, 'cells]'
-                ))
-            },
-            error = function(condition) {
-                log_print(paste("Matrix already filtered. Using raw_mtx as filtered."))
-                log_print(paste("Message:", conditionMessage(condition)))
-                filt_mtx <<- raw_mtx
-            })
-
-            # Convert to Seurat Object
-            withCallingHandlers({
-                tmp_seurat_obj <- CreateSeuratObject(counts = filt_mtx, min.cells = 3)
-            }, warning = function(w) {
-                if ( any(grepl("Non-unique features", w)) ) {
-                    invokeRestart("muffleWarning")
+            if (class(scrnaseq_obj) %in% c('Seurat', 'SeuratObject')) {
+                log_print(paste(Sys.time(), 'Seurat object found'))
+                tmp_seurat_obj <- scrnaseq_obj
+                if (!troubleshooting) {
+                    rm(scrnaseq_obj)
                 }
-            })
-            if (!troubleshooting) {
-                rm(raw_mtx)
-                rm(filt_mtx)
-                gc()
+
+            } else if (class(scrnaseq_obj) %in% c('dgCMatrix', 'Matrix')) {
+                c(num_features, num_cells) %<-% dim(scrnaseq_obj)
+                log_print(paste(
+                    Sys.time(),'Matrix dims: [', num_features, 'features x', num_cells, 'cells]'
+                ))
+
+                # Filter empty drops
+                tryCatch({
+                    drop_stats <- emptyDrops(scrnaseq_obj)
+                    filt_mtx <- scrnaseq_obj[ ,
+                        (drop_stats[['FDR']] <= 0.05) &
+                        (is.na(drop_stats[['FDR']])==FALSE)
+                    ]
+                    c(num_features, num_cells) %<-% dim(filt_mtx)
+
+                    log_print(paste(
+                        Sys.time(), 'Filtered Matrix dims: [', num_features, 'features x', num_cells, 'cells]'
+                    ))
+                },
+                error = function(condition) {
+                    log_print(paste("Matrix already filtered. Using scrnaseq_obj as filtered."))
+                    log_print(paste("Message:", conditionMessage(condition)))
+                    filt_mtx <<- scrnaseq_obj
+                })
+
+                # Convert to Seurat Object
+                withCallingHandlers({
+                    tmp_seurat_obj <- CreateSeuratObject(counts = filt_mtx, min.cells = 3)
+                    if (!troubleshooting) {
+                        rm(scrnaseq_obj)
+                        rm(filt_mtx)
+                    }
+                }, warning = function(w) {
+                    if ( any(grepl("Non-unique features", w)) ) {
+                        invokeRestart("muffleWarning")
+                    }
+                })
+
+            } else {
+                stop('Unexpected input type.')
             }
+            gc()
 
             tmp_seurat_obj$sample_name <- sample_name
             tmp_seurat_obj[["percent.mt"]] <- PercentageFeatureSet(
-                tmp_seurat_obj, pattern = "^mt-"
+                tmp_seurat_obj, pattern = ifelse(opt[['human']], "^MT-", "^mt-")
             )
 
             # For the filters, thresholds are adjusted automatically
@@ -330,6 +347,9 @@ for (group_name in group_names) {
 
     log_print(paste(Sys.time(), 'Labeling clusters...'))
 
+    if (opt[['human']] && opt[['celldex']] == 'ImmGen') {
+        opt[['celldex']] <- 'HPCA'
+    }
     withCallingHandlers({
         ref_data <- celldex_switch[[opt$celldex]](ensembl=opt[['ensembl']])
     }, warning = function(w) {

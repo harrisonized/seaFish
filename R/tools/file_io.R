@@ -176,6 +176,8 @@ read_scrnaseq <- function(data_dir) {
         file_ext <- tools::file_ext(filename)
         if (file_ext=='h5') {
             filetype <- 'h5'
+        } else if (file_ext=='RData') {
+            filetype <- 'RData'
         } else {
             filetype <- 'tsv'
         }
@@ -183,19 +185,22 @@ read_scrnaseq <- function(data_dir) {
 
     # read data
     if (filetype=='10x') {
-        expr_mtx <- read_10x(data_dir)
+        scrnaseq_obj <- read_10x(data_dir)
     }
     if (filetype=='h5') {
-        expr_mtx <- Read10X_h5(file.path(data_dir, filename))
+        scrnaseq_obj <- Read10X_h5(file.path(data_dir, filename))
         if (length(expr_mtx) > 1) {
-            expr_mtx <- expr_mtx[[1]]
+            scrnaseq_obj <- scrnaseq_obj[[1]]
         }
     }
     if (filetype=='tsv') {
-        expr_mtx <- read_counts_data(file.path(data_dir, filename))
+        scrnaseq_obj <- read_counts_data(file.path(data_dir, filename))
+    }
+    if (filetype=='RData') {
+        scrnaseq_obj <- load_rdata(file.path(data_dir, filename))
     }
 
-    return(expr_mtx)   
+    return(scrnaseq_obj)
 }
 
 

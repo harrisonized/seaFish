@@ -43,6 +43,10 @@ option_list = list(
                 metavar="FALSE", action="store_true", type="logical",
                 help="turn this on to plot heatmap of top markers"),
 
+    make_option(c("-f", "--human"), default=FALSE,
+                metavar="FALSE", action="store_true", type="logical",
+                help="default organism is mouse, turn this on for human datasets"),
+
     make_option(c("-s", "--slice"), default="",
                 metavar="", type="character",
                 help="enter comma separated list of indices"),
@@ -129,6 +133,7 @@ for (idx in 1:length(grouped_idxs)) {
             '-c', opt[['celldex']],
             ifelse(opt[['ensembl']], '-e', ''),
             ifelse(opt[['markers']], '-m', ''),
+            ifelse(opt[['human']], '-f', ''),
             '-s', '"', as.character(paste0(grouped_idxs[idx])), '"',
             ifelse(opt[['troubleshooting']], '-t', '')
     )

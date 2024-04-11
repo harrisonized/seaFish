@@ -7,7 +7,7 @@ With high "efficiency," we use this pipeline to search for "a fish in the sea." 
 
 | Script Number | Script Name | Description |
 | :------------ | ----------- | ----------- |
-| 1 | sea\_turtle.R | This script performs basic qc filtering, integrates the data as defined by the config.json files,  and uses SingleR to label the clusters in an unbiased way. It outputs a variety of figures and the .RData file to be used downstream. |
+| 1 | sea\_turtle.R | This script performs basic qc filtering, integrates the data as defined by the config.json files,  and uses SingleR to label the clusters in an unbiased way. It outputs a variety of figures and the .RData file to be used downstream. By default, this script assumes the input data is mouse. To switch to human, use the `-f` flag.  |
 | 2 | finding\_nemo.R | This script visualizes the gene of interest using the .RData file output by R/shoal\_formation.R. This is a relatively fast script. |
 | 3 | arribada.R | Parallelizes shoal_formation, since this takes some time. |
 | 4 | coral_reef.R | Creates a dotplot visualization to provide an overview of all the processed datasets. Still under development. |
