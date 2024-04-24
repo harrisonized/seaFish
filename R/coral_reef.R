@@ -7,12 +7,15 @@ library('logr')
 
 import::from(rjson, 'fromJSON', 'toJSON')
 import::from(stringr, 'str_match')
+import::here(tidyr, 'pivot_wider')
 import::from(file.path(wd, 'R', 'tools', 'list_tools.R'),
     'items_in_a_not_b', .character_only=TRUE)
 import::from(file.path(wd, 'R', 'tools', 'file_io.R'),
     'append_many_csv', 'savefig', .character_only=TRUE)
+import::from(file.path(wd, 'R', 'tools', 'df_tools.R'),
+    'set_index', .character_only=TRUE)
 import::from(file.path(wd, 'R', 'tools', 'plotting.R'),
-    'plot_dotplot', .character_only=TRUE)
+    'plot_dotplot', 'plot_heatmap', .character_only=TRUE)
 
 
 # ----------------------------------------------------------------------
@@ -121,36 +124,62 @@ relevant_files <- names(items_in_a_not_b(
 
 
 # ----------------------------------------------------------------------
-# Main
+# Read Data
 
-# read data
-df <- append_many_csv(relevant_files)
+raw_data <- append_many_csv(relevant_files)
 
 # extract metadata
-df[['dataset']] <- sapply(df[['filepath']], 
+raw_data[['dataset']] <- sapply(raw_data[['filepath']], 
     function(x) stringr::str_match(x, paste('data', "(.*?)", "output*", sep='/'))[[2]]
 )
-df[['sample_name']] <- sapply(df[['filepath']], 
+raw_data[['sample_name']] <- sapply(raw_data[['filepath']], 
     function(x) stringr::str_match(basename(x),
         paste0('(cell_type-integrated|cell_type)-', "(.*?)", '-', tolower(gene), '.csv'))[[3]]
 )
-df[['id']] <- paste(df[['dataset']], df[['sample_name']])  # x axis text
-tmp <- df[(df[['num_cells_total']] >= 50), ]
+raw_data[['id']] <- paste(raw_data[['dataset']], raw_data[['sample_name']])  # x axis text
 
+
+# ----------------------------------------------------------------------
+# Dotplot
+
+df <- raw_data[(raw_data[['num_cells_total']] >= 50), ]  # quality filter
 
 # order
 if (file.exists(file.path(wd, input_dir, opt[['order']]))) {
     xlabel_order <- read.csv(file.path(wd, 'data', opt[['order']]), header=FALSE)[['V1']]
-    tmp <- tmp[(tmp[['id']] %in% xlabel_order), ]
-    tmp[['id']] <- factor(tmp[['id']], levels = xlabel_order)
+    df <- df[(df[['id']] %in% xlabel_order), ]
+    df[['id']] <- factor(df[['id']], levels = xlabel_order)
 }
 
-
 # plot
-fig <- plot_dotplot(tmp, title=expression(paste(italic("Dnase1l1"), " Expression")))
+fig <- plot_dotplot(df, title=expression(paste(italic("Dnase1l1"), " Expression")))
 if (!troubleshooting) {
     savefig(file.path(wd, figures_dir, paste0('dotplot-overview.png')),
             height=opt[['height']], width=opt[['width']], dpi=800, 
+            makedir=FALSE, troubleshooting=troubleshooting)    
+}
+
+
+# ----------------------------------------------------------------------
+# Heatmap
+
+tmp <- as.data.frame(pivot_wider(
+    df,
+    id_cols = 'cell_type',
+    names_from='id',
+    values_from='num_cells_total',
+    values_fill = 0,
+    names_sort=FALSE
+))
+tmp <- set_index(tmp, 'cell_type')
+fig <- plot_heatmap(
+    tmp, title='Number of Cells',
+    xlabel_order=xlabel_order,
+    annotations=TRUE, xaxis_angle=60
+)
+if (!troubleshooting) {
+    savefig(file.path(wd, figures_dir, paste0('heatmap-overview.png')),
+            height=opt[['height']]+200, width=opt[['width']], dpi=500, 
             makedir=FALSE, troubleshooting=troubleshooting)    
 }
 

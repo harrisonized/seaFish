@@ -389,13 +389,18 @@ plot_heatmap <- function(
     xlabel=NULL,
     ylabel=NULL,
     title=NULL,
+    xlabel_order=NULL,
     annotations=FALSE,
     scientific_notation=FALSE,
-    digits=1
+    digits=1,
+    xaxis_angle=0
 ) {
     
     tab <- smelt(rev_df(df))  # reshape
-
+    if (!is.null(xlabel_order)) {
+        tab[['col']] <- factor(tab[['col']], levels = xlabel_order)
+    }
+    
     # axis labels
     if (!is.null(xlabel)) {
         xtitle = element_text()
@@ -433,6 +438,7 @@ plot_heatmap <- function(
         scale_y_discrete(limits=rev) +
         coord_fixed(expand=TRUE) +
         labs(title = title, x=xlabel, y=ylabel) +
+        scale_x_discrete(guide=guide_axis(angle=xaxis_angle)) +
         theme(plot.title = element_text(size = 10),
               axis.title.x = xtitle,
               axis.title.y = ytitle) +
