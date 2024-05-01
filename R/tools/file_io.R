@@ -189,9 +189,9 @@ read_scrnaseq <- function(data_dir) {
     }
     if (filetype=='h5') {
         scrnaseq_obj <- Read10X_h5(file.path(data_dir, filename))
-        if (length(expr_mtx) > 1) {
-            scrnaseq_obj <- scrnaseq_obj[[1]]
-        }
+        # if (length(scrnaseq_obj) > 1) {
+        #     scrnaseq_obj <- scrnaseq_obj[[1]]
+        # }
     }
     if (filetype=='tsv') {
         scrnaseq_obj <- read_counts_data(file.path(data_dir, filename))
