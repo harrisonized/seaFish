@@ -161,13 +161,13 @@ df[['cell_type']] <- factor(df[['cell_type']], levels = ylabel_order)
 
 # plot
 fig <- plot_dotplot(
-    df,
+    df[!(df[['cell_type']] %in% c("Basophils",  "Mast cells", "B cells, pro")), ],
     title=expression(paste(italic("Dnase1l1"), " Expression"))
 )
 
 if (!troubleshooting) {
     savefig(file.path(wd, figures_dir, paste0('dotplot-overview.png')),
-            height=3200, width=5000, dpi=320, scaling=2,
+            height=3600, width=5400, dpi=400, scaling=2,
             makedir=FALSE, troubleshooting=troubleshooting)
 }
 
