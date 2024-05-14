@@ -25,3 +25,19 @@ lantz-2020-efferocytosis/
 └─ README.md
 ```
 In total, there are 6 files split from `GSE156234_aggregated_raw_counts.tsv.gz`.
+
+## Protocol
+
+Animal studies. C57BL/6J mice were used as WT controls and bred in the Northwestern Center for Com- parative Medicine facility. MerKD (referred to herein as MerTK−/−) have been previously described25 and were backcrossed to C57BL/6J mice for ten generations. Eight- to twelve-week old mice were utilized for experiments. Mice were bred and housed in a pathogen-free, temperature- and humidity-controlled environment with access to standard mouse chow and water ad libitum.
+
+**Ex vivo efferocytosis assay**
+
+Resident peritoneal cells were harvested after lavage with cold saline. Peritoneal cells from 3 mice were pooled together for each experimental group. Initial cell selection was achieved through adherence to non-treated, low-adherence cell culture plates for 1 h and rinsed to remove non-adherent cells.
+
+Apoptotic cells (ACs) were generated using GFP-Jurkat Human T cells (GenTarget) exposed to UV radiation for 7 min followed by a 2-h incubation at 37 °C. Apoptosis was confirmed by annexin V positive, propidium iodide negative identification affirming greater than 80% apoptosis.
+
+Adherent resident peritoneal cells were co-cultivated with ACs at a ratio of 5 ACs to 1 peritoneal cell for 2 h or 6 h as indicated. Control cells were given a media change corresponding to the 6-h timepoint. Non-engulfed ACs were removed from the co-culture through rigorous rinsing with warm saline. Adherent macrophages were removed from the plate with Accutase and resuspended into a single cell suspension. Apoptotic cell engulfment was confirmed with confocal fluorescence microscopy.
+
+**Single cell library preparation and RNA sequencing**
+
+The single cell RNA-Seq libraries were prepared using the 10X Genomics Single Cell 5′ Gel Bead and Library Kit pipeline following manufacturer’s protocols. Cell suspensions were diluted to target a recovery of 4,000 cells per sample.
