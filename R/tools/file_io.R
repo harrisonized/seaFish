@@ -178,7 +178,10 @@ read_scrnaseq <- function(data_dir) {
             filetype <- 'h5'
         } else if (file_ext=='RData') {
             filetype <- 'RData'
-        } else {
+        } else if (grep('txt', filename)) {
+            filetype <- 'txt'
+        }
+        else {
             filetype <- 'tsv'
         }
     }
@@ -193,11 +196,15 @@ read_scrnaseq <- function(data_dir) {
         #     scrnaseq_obj <- scrnaseq_obj[[1]]
         # }
     }
-    if (filetype=='tsv') {
-        scrnaseq_obj <- read_counts_data(file.path(data_dir, filename))
+    if (filetype=='txt') {
+        df <- read.table(file.path(data_dir, filename))
+        scrnaseq_obj <- as(Matrix(as.matrix(df)), "CsparseMatrix")
     }
     if (filetype=='RData') {
         scrnaseq_obj <- load_rdata(file.path(data_dir, filename))
+    }
+    if (filetype=='tsv') {
+        scrnaseq_obj <- read_counts_data(file.path(data_dir, filename))
     }
 
     return(scrnaseq_obj)

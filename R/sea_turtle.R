@@ -110,6 +110,12 @@ config_file <- file.path(wd, opt[['input-dir']], opt[['config']])
 if (file.exists(config_file)) {
     log_print(paste(Sys.time(), 'Reading config...'))
     config <- fromJSON(file=config_file)
+
+    # subset
+    if (opt[['slice']] != '') {
+        config <- config[ eval(parse( text=paste0('c(', opt[['slice']], ')') )) ]
+    }
+
     group_names <- names(config)
 } else {
     log_print(paste(Sys.time(), 'Generating config...'))
@@ -120,12 +126,6 @@ if (file.exists(config_file)) {
         write(toJSON(config), file=config_file)
     }
 }
-
-# subset
-if (opt[['slice']] != '') {
-    config <- config[ eval(parse( text=paste0('c(', opt[['slice']], ')') )) ]
-}
-
 
 # ----------------------------------------------------------------------
 # Main
@@ -160,7 +160,7 @@ for (group_name in group_names) {
                     rm(scrnaseq_obj)
                 }
 
-            } else if (class(scrnaseq_obj) %in% c('dgCMatrix', 'Matrix')) {
+            } else if (class(scrnaseq_obj) %in% c('dgCMatrix', 'Matrix', 'data.frame')) {
                 c(num_features, num_cells) %<-% dim(scrnaseq_obj)
                 log_print(paste(
                     Sys.time(),'Matrix dims: [', num_features, 'features x', num_cells, 'cells]'
@@ -453,7 +453,25 @@ for (group_name in group_names) {
             showfig=troubleshooting
         )
     }
-    
+
+    if (is_integrated) {
+        seurat_obj_subsets <- SplitObject(seurat_obj_subset, split.by = "sample_name")
+
+        for (sample_name in sample_names) {
+
+            export_clustering_results(
+                seurat_obj_subsets[[sample_name]],
+                sample_name=sample_name,
+                multiplicity='individual',
+                data_dir=output_dir,
+                figures_dir=figures_dir,
+                file_basename=paste0(sample_name, '-subset'),
+                troubleshooting=troubleshooting,
+                showfig=troubleshooting
+            )
+        }
+    }
+
 
     # ----------------------------------------------------------------------
     # Find Top Markers in subset

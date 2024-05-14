@@ -40,12 +40,12 @@ option_list = list(
                 metavar='config.json', type="character",
                 help="json file containing group information"),
 
-    make_option(c("-l", "--height"), default=1600,
-                metavar="2000", type="integer",
+    make_option(c("-l", "--height"), default=4200,
+                metavar="3600", type="integer",
                 help="height in px"),
 
-    make_option(c("-w", "--width"), default=3200,
-                metavar="2000", type="integer",
+    make_option(c("-w", "--width"), default=7000,
+                metavar="7000", type="integer",
                 help="width in px"),
 
     make_option(c("-r", "--order"), default='xlabel_order.csv',
@@ -144,19 +144,31 @@ raw_data[['id']] <- paste(raw_data[['dataset']], raw_data[['sample_name']])  # x
 
 df <- raw_data[(raw_data[['num_cells_total']] >= 50), ]  # quality filter
 
-# order
+# xlabel order
 if (file.exists(file.path(wd, input_dir, opt[['order']]))) {
     xlabel_order <- read.csv(file.path(wd, 'data', opt[['order']]), header=FALSE)[['V1']]
     df <- df[(df[['id']] %in% xlabel_order), ]
     df[['id']] <- factor(df[['id']], levels = xlabel_order)
 }
 
+# ylabel order
+ylabel_order <- c(
+    "Macrophages", "Monocytes", "Neutrophils", "DC", "Basophils",  "Mast cells", "Stem cells",
+    "B cells",  "B cells, pro", "T cells", "Tgd", "NK cells", "NKT", "ILC",
+    "Endothelial cells", "Fibroblasts", "Epithelial cells", "Stromal cells"
+)
+df[['cell_type']] <- factor(df[['cell_type']], levels = ylabel_order)
+
 # plot
-fig <- plot_dotplot(df, title=expression(paste(italic("Dnase1l1"), " Expression")))
+fig <- plot_dotplot(
+    df,
+    title=expression(paste(italic("Dnase1l1"), " Expression"))
+)
+
 if (!troubleshooting) {
     savefig(file.path(wd, figures_dir, paste0('dotplot-overview.png')),
-            height=opt[['height']], width=opt[['width']], dpi=800, 
-            makedir=FALSE, troubleshooting=troubleshooting)    
+            height=3200, width=5000, dpi=320, scaling=2,
+            makedir=FALSE, troubleshooting=troubleshooting)
 }
 
 
@@ -179,7 +191,7 @@ fig <- plot_heatmap(
 )
 if (!troubleshooting) {
     savefig(file.path(wd, figures_dir, paste0('heatmap-overview.png')),
-            height=opt[['height']]+200, width=opt[['width']], dpi=500, 
+            height=1600+200, width=3200, dpi=500, 
             makedir=FALSE, troubleshooting=troubleshooting)    
 }
 

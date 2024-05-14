@@ -129,7 +129,7 @@ draw_clusters <- function(
         ggtitle(title)
     if (showfig) { print(fig) }
     savefig(file.path(dirpath, paste0('umap-seurat_labeled-', file_basename, '.png')),
-            width=1000*num_samples,
+            width=4000*num_samples+800, height=4000, dpi=1600,
             makedir=TRUE, troubleshooting=troubleshooting)
 
     # ----------------------------------------------------------------------
@@ -143,7 +143,8 @@ draw_clusters <- function(
         ) + ggtitle(title)
     if (showfig) { print(fig) }
     savefig(file.path(dirpath, paste0('umap-', tolower(celldex_dataset), '_labeled-', file_basename, '.png')),
-            width=1000*num_samples, troubleshooting=troubleshooting)
+            width=4000*num_samples+800, height=4000, dpi=1600,
+            troubleshooting=troubleshooting)
 
     # ----------------------------------------------------------------------
     # Figure 3. Seurat vs. Celldex
@@ -222,7 +223,7 @@ draw_gene_of_interest <- function(
         ggtitle( opt[['gene-of-interest']] )
     if (showfig) { print(fig) }
     savefig(file.path(dirpath, paste0('umap-', file_basename, '-', tolower(gene), '.png')),
-            height=800, width=800,
+            height=4000, width=4000, dpi=1600,
             troubleshooting=troubleshooting)
 
     # ----------------------------------------------------------------------

@@ -10,7 +10,7 @@ import::here(ggplot2,
     'scale_color_gradient', 'scale_colour_gradientn',
     'annotate', 'element_text', 'element_blank', 'margin', 'unit')
 import::here(scales, 'trans_breaks', 'trans_format', 'math_format')
-import::here(cowplot, theme_cowplot)
+import::here(cowplot, 'theme_cowplot')
 import::here(patchwork, 'wrap_plots', 'plot_layout')
 import::here(RColorBrewer, 'brewer.pal')
 import::here(file.path(wd, 'R', 'tools', 'list_tools.R'),
@@ -99,11 +99,11 @@ plot_dotplot <- function(df,
     xlabel=NULL,
     ylabel=NULL,
     title="Expression",
-    xaxis_angle=60,
-    dot_scale=3.5,
+    xaxis_angle=90,
+    dot_scale=3,
     xtick_size=6,
-    ytick_size=7,
-    title_size=10,
+    ytick_size=6,
+    title_size=12,
     legend_size=7,
     legend_title='Percent Expressed',
     colorbar_title='Average Expression'
@@ -120,14 +120,15 @@ plot_dotplot <- function(df,
         scale_colour_gradientn(colours = rev(brewer.pal(n = 10, name = "RdBu"))) +
         # scale_color_gradient(low="lightgrey", high="blue") +
         theme_bw() +
-        theme(axis.text.x = element_text(size=xtick_size),
-              axis.text.y = element_text(size=ytick_size),
+        theme(axis.text.x = element_text(size=xtick_size, color="black"),
+              axis.text.y = element_text(size=ytick_size, color="black"),
               plot.title = element_text(size=title_size),
               legend.title = element_text(size = legend_size),
               legend.text = element_text(size = legend_size),
               legend.key.size = unit(5, 'mm'),
-              legend.margin=margin(c(20, 0, -5, 0))
-              ) +
+              legend.margin=margin(c(20, 0, -5, 0)),
+              panel.border = element_blank(), 
+              panel.grid.major = element_blank(), ) +
         guides(size = guide_legend(title = legend_title),
                color = guide_colorbar(title = colorbar_title))
 
