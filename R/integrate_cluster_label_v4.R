@@ -1,4 +1,3 @@
-## Sea turtles are generally solitary creatures, only gathering together to mate.
 ## In scRNAseq, although each sample is collected independently, projecting them
 ## onto the same embedding (ie. UMAP) greatly reduces potential batch effects.
 ## This script performs data integration, clustering, and unbiased labeling.

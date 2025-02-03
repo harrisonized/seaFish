@@ -1,7 +1,4 @@
-## Every fall, thousands of sea turtles arrive on the shores of Costa Rica to
-## synchronously lay millions of eggs in an event known as the arribada,
-## Spanish for "arrival by sea." This script is an orchestrator that
-## synchronously runs sea_turtle.R.
+## This script is an orchestrator that synchronously runs integrate_cluster_label.R.
 
 wd = dirname(this.path::here())  # wd = '~/github/R/seaFish'
 library('parallel')
