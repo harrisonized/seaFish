@@ -97,7 +97,7 @@ figures_dir <- multiple_replacement(
 
 # Start Log
 start_time <- Sys.time()
-log <- log_open(paste0("sea_turtle-", random_hash(), '-',
+log <- log_open(paste0("integrate_cluster_label_v4-", random_hash(), '-',
                        strftime(start_time, format="%Y%m%d_%H%M%S"), '.log'))
 log_print(paste('Script started at:', start_time))
 

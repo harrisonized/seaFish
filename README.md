@@ -8,7 +8,7 @@ The purpose of this repository is to enable me to efficiently perform explorator
 | Script Number | Script Name | Description |
 | :------------ | ----------- | ----------- |
 | 1 | integrate\_cluster\_label\_v4.R | This script performs basic qc filtering, integrates the data as defined by the config.json files,  and uses SingleR to label the clusters in an unbiased way. It outputs a variety of figures and the .RData file to be used downstream. By default, this script assumes the input data is mouse. To switch to human, use the `-f` flag.  |
-| 2 | plot\_goi.R | This script visualizes the gene of interest using the .RData file output by R/shoal\_formation.R. This is a relatively fast script. |
+| 2 | plot\_gene\_of\_interest.R | This script visualizes the gene of interest using the .RData file output by integrate\_cluster\_label\_v4.R. This is a relatively fast script. |
 | 3 | parallelize_icl.R | Parallelizes integrate\_cluster\_label\_v4.R, since this takes some time. |
 | 4 | plot\_overview.R | Creates a dotplot visualization to provide an overview of all the processed datasets. Still under development. |
 | 5 | dashboard.R  | Shiny app. Very basic visualizations at the moment. At some point once I finalize what figures I consider to be standard, I will build this out. |

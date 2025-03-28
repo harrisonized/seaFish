@@ -72,7 +72,7 @@ figures_dir <- opt[['figures-dir']]
 
 # Start Log
 start_time <- Sys.time()
-log <- log_open(paste0("coral_reef-",
+log <- log_open(paste0("plot_overview-",
     strftime(start_time, format="%Y%m%d_%H%M%S"), '.log'))
 log_print(paste('Script started at:', start_time))
 
