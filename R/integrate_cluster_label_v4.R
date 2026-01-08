@@ -9,7 +9,7 @@
 
 wd = dirname(this.path::here())  # wd = '~/github/R/seaFish'
 suppressPackageStartupMessages(library('Seurat'))
-library('zeallot')  # %<-%
+# library('zeallot')  # %<-%
 library('optparse')
 library('logr')
 import::from(magrittr, '%>%')
@@ -160,7 +160,8 @@ for (group_name in group_names) {
                 }
 
             } else if (class(scrnaseq_obj) %in% c('dgCMatrix', 'Matrix', 'data.frame')) {
-                c(num_features, num_cells) %<-% dim(scrnaseq_obj)
+                num_features <- dim(scrnaseq_obj)[[1]]
+                num_cells <- dim(scrnaseq_obj)[[2]]
                 log_print(paste(
                     Sys.time(),'Matrix dims: [', num_features, 'features x', num_cells, 'cells]'
                 ))
@@ -172,7 +173,8 @@ for (group_name in group_names) {
                         (drop_stats[['FDR']] <= 0.05) &
                         (is.na(drop_stats[['FDR']])==FALSE)
                     ]
-                    c(num_features, num_cells) %<-% dim(filt_mtx)
+                    num_features <- dim(filt_mtx)[[1]]
+                    num_cells <- dim(filt_mtx)[[2]]
 
                     log_print(paste(
                         Sys.time(), 'Filtered Matrix dims: [', num_features, 'features x', num_cells, 'cells]'
@@ -210,11 +212,14 @@ for (group_name in group_names) {
             # For the filters, thresholds are adjusted automatically
             # Lower bound: low quality cells
             # Upper bound: potential doublets
-            c(tmp_threshold_data, upper_rna_count,
-              upper_rna_feature, upper_pct_mt) %<-% compute_thresholds(
+            thresholds <- compute_thresholds(
                   tmp_seurat_obj,
                   sample_name=sample_name
             )
+            tmp_threshold_data <- thresholds[[1]]
+            upper_rna_count <- thresholds[[2]]
+            upper_rna_feature <- thresholds[[3]]
+            upper_pct_mt <- thresholds[[4]]
             threshold_data[[sample_name]] <- tmp_threshold_data
 
             draw_qc_plots(

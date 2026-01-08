@@ -2,7 +2,7 @@
 
 wd = dirname(this.path::here())  # wd = '~/github/R/seaFish'
 suppressPackageStartupMessages(library('Seurat'))
-library('zeallot')  # %<-%
+# library('zeallot')  # %<-%
 library('optparse')
 library('logr')
 import::from(stringr, 'str_extract')
@@ -98,7 +98,9 @@ if (file.exists(config_file)) {
 # subset
 if (opt[['slice']] != '') {
     slice <- eval(parse( text=paste0('c(', opt[['slice']], ')') ))
-    c(config, group_names, filenames) %<-% list(config[slice], group_names[slice], filenames[slice])
+    config <- config[slice]
+    group_names <- group_names[slice]
+    filenames <- filenames[slice]
 }
 
 
