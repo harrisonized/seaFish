@@ -244,7 +244,7 @@ savefig <- function(
                 ggsave(
                     filepath,
                     plot=fig,
-                    height=height, width=width, dpi=dpi, units=units, scaling=scaling
+                    height=height, width=width, dpi=dpi, units=units, scale=scaling
                 )
             }, warning = function(w) {
                 if ( any(grepl("rows containing non-finite values", w),

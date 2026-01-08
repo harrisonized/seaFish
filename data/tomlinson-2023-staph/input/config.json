@@ -1,6 +1,3 @@
 {
-  "WT": ["PBS-treated WT", "LAC-infected WT"],
-  "Irg1-null": ["PBS-treated Irg1-null", "LAC-infected Irg1-null"],
-  "PBS-treated": ["PBS-treated WT", "PBS-treated Irg1-null"],
-  "LAC-infected": ["LAC-infected WT", "LAC-infected Irg1-null"]
+  "WT": ["PBS-treated WT", "LAC-infected WT"]
 }

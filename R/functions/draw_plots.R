@@ -324,7 +324,7 @@ draw_predictions <- function(
     # ----------------------------------------------------------------------
     # Figure 2. Number of cells per label
 
-    num_cells_per_label <- table(predictions['labels'])
+    num_cells_per_label <- table(data.frame(predictions['labels']))
     num_cells_per_label <- num_cells_per_label[sort.list(num_cells_per_label, decreasing=TRUE)]
 
     fig <- plot_bar(
