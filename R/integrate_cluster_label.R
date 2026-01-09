@@ -9,6 +9,10 @@
 
 wd = dirname(this.path::here())  # wd = '~/github/R/seaFish'
 suppressPackageStartupMessages(library('Seurat'))
+seurat_version <- as.numeric(substr(packageVersion("Seurat"), 1, 1))
+if (seurat_version==5) {
+    import::from(scCustomize, 'Convert_Assay')
+}
 # library('zeallot')  # %<-%
 library('optparse')
 library('logr')
@@ -33,6 +37,7 @@ import::from(file.path(wd, 'R', 'functions', 'draw_plots.R'),
     'draw_qc_plots', 'draw_predictions', .character_only=TRUE)
 import::from(file.path(wd, 'R', 'functions', 'export_results.R'),
     'export_clustering_results', .character_only=TRUE)
+
 
 # ----------------------------------------------------------------------
 # Pre-script settings
@@ -188,7 +193,15 @@ for (group_name in group_names) {
 
                 # Convert to Seurat Object
                 withCallingHandlers({
-                    tmp_seurat_obj <- CreateSeuratObject(counts = filt_mtx, min.cells = 3)
+                    if (seurat_version==5) {
+                        tmp_seurat_obj <- CreateSeuratObject(CreateAssayObject(
+                            assay = "RNA", counts = filt_mtx, min.cells = 3)
+                        )
+                    } else {  # seurat_version==4
+                        tmp_seurat_obj <- CreateSeuratObject(
+                            counts = filt_mtx, min.cells = 3)
+                    }
+                    
                     if (!troubleshooting) {
                         rm(scrnaseq_obj)
                         rm(filt_mtx)
@@ -288,35 +301,70 @@ for (group_name in group_names) {
         log_print(paste(Sys.time(), 'Integrating data...'))
 
         # integrate
-        features <- SelectIntegrationFeatures(object.list = seurat_objs, nfeatures = 2000)
-        withCallingHandlers({
+
+        if (seurat_version==5) {
+            seurat_objs <- lapply(seurat_objs,
+                function(x) scCustomize::Convert_Assay(x, convert_to='v5'))
+            combined <- merge(x = seurat_objs[[1]], y = seurat_objs[-1])
+            combined <- FindVariableFeatures(combined)
+            combined <- ScaleData(combined)
+            combined <- RunPCA(combined)
+
             if (length(seurat_objs) <= 3) {
-                anchors <- FindIntegrationAnchors(
-                    object.list = seurat_objs,
-                    anchor.features = features,
-                    reduction='cca'  # default
+                seurat_obj <- IntegrateLayers(
+                    object = combined,
+                    method = CCAIntegration,
+                    orig.reduction = "pca",
+                    new.reduction = "integrated.cca",
+                    verbose = FALSE
                 )
             } else {
-                # See: https://satijalab.org/seurat/archive/v4.3/integration_large_datasets
-                seurat_objs <- lapply(seurat_objs, function(x) {
-                    ndim = 30  # standard
-                    x <- ScaleData(x, features = features, verbose = FALSE)
-                    x <- RunPCA(x, features = features, npcs = ndim, verbose = FALSE)
-                })
-                anchors <- FindIntegrationAnchors(
-                    object.list = seurat_objs,
-                    anchor.features = features,
-                    reference = c(1),
-                    reduction='rpca'  # faster
+                options(future.globals.maxSize = 1500 * 1024^2)  # 1.5 GB
+                seurat_obj <- IntegrateLayers(
+                    object = combined,
+                    method = RPCAIntegration,
+                    orig.reduction = "pca",
+                    new.reduction = "integrated.rpca",
+                    verbose = FALSE
                 )
             }
-        }, warning = function(w) {
-            if ( any(grepl("Some cell names are duplicated", w)) ) {
-                invokeRestart("muffleWarning")
-            }
-        })
-        seurat_obj <- IntegrateData(anchorset = anchors)  # reduction = "pca" may run faster?
-        DefaultAssay(seurat_obj) <- "integrated"
+
+        } else {  # seurat_version==4
+
+            features <- SelectIntegrationFeatures(object.list = seurat_objs, nfeatures = 2000)
+            withCallingHandlers({
+                if (length(seurat_objs) <= 3) {
+                    anchors <- FindIntegrationAnchors(
+                        object.list = seurat_objs,
+                        anchor.features = features,
+                        reduction='cca'  # default
+                    )
+                } else {
+                    # See: https://satijalab.org/seurat/archive/v4.3/integration_large_datasets
+                    seurat_objs <- lapply(seurat_objs, function(x) {
+                        ndim = 30  # standard
+                        x <- ScaleData(x, features = features, verbose = FALSE)
+                        x <- RunPCA(x, features = features, npcs = ndim, verbose = FALSE)
+                    })
+                    anchors <- FindIntegrationAnchors(
+                        object.list = seurat_objs,
+                        anchor.features = features,
+                        reference = c(1),
+                        reduction='rpca'  # faster
+                    )
+                }
+            }, warning = function(w) {
+                if ( any(grepl("Some cell names are duplicated", w)) ) {
+                    invokeRestart("muffleWarning")
+                }
+            })
+            seurat_obj <- IntegrateData(anchorset = anchors)  # reduction = "pca" may run faster?     
+        }
+
+        if (seurat_version==4) {
+            DefaultAssay(seurat_obj) <- "integrated"
+        }
+        
         is_integrated <- TRUE
 
     } else if (length(seurat_objs)==1) {
@@ -362,6 +410,9 @@ for (group_name in group_names) {
         }
     })
 
+    if (seurat_version==5) {
+        seurat_obj <- JoinLayers(seurat_obj)
+    }
     predictions <- SingleR(
         test=as.SingleCellExperiment(seurat_obj),
         assay.type.test=1,
@@ -386,6 +437,7 @@ for (group_name in group_names) {
     log_print(paste(Sys.time(), 'Saving Seurat object...'))
 
     # seurat_obj
+    # TODO: label the output object as v4 or v5
     filepath=file.path(wd, output_dir, 'rdata',
         paste0('seurat_obj-', prefix, group_name, '.RData'))
     if (!troubleshooting) {
@@ -411,7 +463,8 @@ for (group_name in group_names) {
             figures_dir=figures_dir,
             file_basename=paste0(prefix, group_name),
             troubleshooting=troubleshooting,
-            showfig=troubleshooting
+            showfig=troubleshooting,
+            seurat_version=seurat_version
         )
 
         log_print(paste(Sys.time(), 'Exporting integrated subset...'))
@@ -432,7 +485,8 @@ for (group_name in group_names) {
             file_basename=paste0(prefix, group_name, '-subset'),
             include_heatmap=FALSE,
             troubleshooting=troubleshooting,
-            showfig=troubleshooting
+            showfig=troubleshooting,
+            seurat_version=seurat_version
         )
     }
 
@@ -454,7 +508,8 @@ for (group_name in group_names) {
             figures_dir=figures_dir,
             file_basename=sample_name,
             troubleshooting=troubleshooting,
-            showfig=troubleshooting
+            showfig=troubleshooting,
+            seurat_version=seurat_version
         )
     }
 
@@ -471,7 +526,8 @@ for (group_name in group_names) {
                 figures_dir=figures_dir,
                 file_basename=paste0(sample_name, '-subset'),
                 troubleshooting=troubleshooting,
-                showfig=troubleshooting
+                showfig=troubleshooting,
+                seurat_version=seurat_version
             )
         }
     }

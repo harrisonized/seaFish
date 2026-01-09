@@ -47,7 +47,8 @@ draw_qc_plots <- function(
     dirpath,
     file_basename='SeuratProject',
     troubleshooting=FALSE,
-    showfig=FALSE
+    showfig=FALSE,
+    seurat_version=4
 ) {
 
     # ----------------------------------------------------------------------
@@ -80,10 +81,17 @@ draw_qc_plots <- function(
     # Figure 4. Waterfall Plot of Gene Representation
     # See: https://ucdavis-bioinformatics-training.github.io/2017_2018-single-cell-RNA-sequencing-Workshop-UCD_UCB_UCSF/day2/scRNA_Workshop-PART2.html
     
-    cells_per_gene <- data.frame(
-        num_cells=sort(rowSums(seurat_obj[['RNA']]@counts>=2), decreasing=TRUE)
-    )
-    cells_per_gene['rank'] = 1:nrow(seurat_obj[['RNA']]@counts)
+    if (seurat_version==5) {
+        cells_per_gene <- data.frame(
+            num_cells=sort(rowSums(seurat_obj[['RNA']]$counts>=2), decreasing=TRUE)
+        )
+        cells_per_gene['rank'] = 1:nrow(seurat_obj[['RNA']]$counts)
+    } else {  #seurat_version==4
+        cells_per_gene <- data.frame(
+            num_cells=sort(rowSums(seurat_obj[['RNA']]@counts>=2), decreasing=TRUE)
+        )
+        cells_per_gene['rank'] = 1:nrow(seurat_obj[['RNA']]@counts)
+    }
 
     fig <- plot_scatter(
         cells_per_gene,

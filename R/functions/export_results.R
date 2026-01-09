@@ -23,7 +23,8 @@ export_clustering_results <- function(
     file_basename='SeuratProject',
     include_heatmap=TRUE,
     troubleshooting=FALSE,
-    showfig=FALSE
+    showfig=FALSE,
+    seurat_version=4
 ) {
 
     draw_qc_plots(
@@ -33,7 +34,8 @@ export_clustering_results <- function(
         dirpath=file.path(wd, figures_dir, multiplicity, sample_name, 'qc', figures_subdir),
         file_basename=file_basename,
         troubleshooting=troubleshooting,
-        showfig=showfig
+        showfig=showfig,
+        seurat_version=seurat_version
     )
 
     draw_clusters(
